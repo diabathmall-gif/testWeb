@@ -156,7 +156,14 @@ tr:hover td{background:#fafaf8}
       <div>
         <p style="font-size:13px;font-weight:500;margin-bottom:.5rem">소분류 (BOM) 관리</p>
         <div style="display:flex;gap:6px;margin-bottom:.5rem">
-          <input id="newSub1Num"  placeholder="번호" style="width:80px;height:32px;padding:0 8px;border:1px solid #d0cfc8;border-radius:8px;font-size:12px;font-family:monospace">
+          <select id="newSub1D1" style="height:32px;padding:0 7px;border:1px solid #d0cfc8;border-radius:8px;font-size:12px">
+            <option value="1">1 수전</option>
+            <option value="2">2 세면/양변기</option>
+            <option value="3">3 악세사리</option>
+            <option value="4">4 도기</option>
+            <option value="5">5 타일</option>
+          </select>
+          <input id="newSub1Num"  placeholder="번호" style="width:60px;height:32px;padding:0 8px;border:1px solid #d0cfc8;border-radius:8px;font-size:12px;font-family:monospace">
           <input id="newSub1Name" placeholder="명칭" style="flex:1;height:32px;padding:0 8px;border:1px solid #d0cfc8;border-radius:8px;font-size:12px">
           <select id="newSub1Grp" style="height:32px;padding:0 7px;border:1px solid #d0cfc8;border-radius:8px;font-size:12px"></select>
           <button class="btn sm primary" onclick="addSub1()">추가</button>
@@ -381,11 +388,11 @@ const USE_MAP1 = {
   '10': [ // T볼트 대너트
     {code:'01',name:'스텐'},{code:'02',name:'동도금'},{code:'03',name:'활동'},
   ],
-  // ── 악세사리 ──────────────────────────────
-  'A01': [ // 선반
+  // ── 악세사리 (d1=3) ───────────────────────
+  '3-01': [ // 선반
     {code:'01',name:'코너선반'},{code:'02',name:'일자선반'},
   ],
-  'A02': [ // 4품 액세서리
+  '3-02': [ // 4품 액세서리
     {code:'01',name:'세트'},           {code:'02',name:'비누대'},
     {code:'03',name:'수건걸이'},       {code:'04',name:'컵대'},
     {code:'05',name:'휴지걸이'},       {code:'06',name:'휴지걸이(핸드폰거치대)'},
@@ -393,7 +400,7 @@ const USE_MAP1 = {
   ],
 };
 const USE_DEFAULT = USE_MAP1['01'];
-function getUseList1(sub1){ return USE_MAP1[sub1] || USE_DEFAULT; }
+function getUseList1(sub1, d1='1'){ return USE_MAP1[(d1||'1')+'-'+sub1] || USE_MAP1[sub1] || USE_DEFAULT; }
 
 // ════════════════════════════════════════════
 //  소분류2 목록 (소분류+소분류1 조합별)
@@ -463,8 +470,8 @@ function getUseList2(sub1,use){
 const USE_MAP3 = {
   '03':[{code:'0',name:'해당없음'},{code:'1',name:'십자'},{code:'2',name:'타원'}],
   '04':[{code:'0',name:'해당없음'},{code:'1',name:'냉수'},{code:'2',name:'온수'}],
-  'A01':[{code:'0',name:'일단'},{code:'1',name:'이단'}],
-  'A02':[
+  '3-01':[{code:'0',name:'일단'},{code:'1',name:'이단'}],
+  '3-02':[
     {code:'0',name:'0'},{code:'1',name:'1'},{code:'2',name:'2'},{code:'3',name:'3'},
     {code:'4',name:'4'},{code:'5',name:'5'},{code:'6',name:'6'},{code:'7',name:'7'},
   ],
@@ -472,10 +479,10 @@ const USE_MAP3 = {
 const SER_LABEL = {
   '03':'소분류3 (핸들모양)',
   '04':'소분류3 (냉/온)',
-  'A01':'소분류3 (구분)',
-  'A02':'소분류3 (시리즈번호)',
+  '3-01':'소분류3 (구분)',
+  '3-02':'소분류3 (시리즈번호)',
 };
-function getUseList3(sub1){ return USE_MAP3[sub1] || null; }
+function getUseList3(sub1, d1='1'){ return USE_MAP3[(d1||'1')+'-'+sub1] || USE_MAP3[sub1] || null; }
 
 // ════════════════════════════════════════════
 //  브랜드 (소분류2 기본값)
@@ -527,15 +534,15 @@ let sub1List = [
   {num:'50', name:'인박스',        grp:'포장/문서류'},  {num:'51', name:'아웃박스',      grp:'포장/문서류'},
   {num:'52', name:'품질보증서',    grp:'포장/문서류'},  {num:'53', name:'스티커',        grp:'포장/문서류'},
   {num:'54', name:'밴딩',          grp:'포장/문서류'},
-  {num:'A01',name:'선반',          grp:'악세사리류'},
-  {num:'A02',name:'4품 액세서리',  grp:'악세사리류'},
-  {num:'A03',name:'드라이어',      grp:'악세사리류'},
-  {num:'A04',name:'유아',          grp:'악세사리류'},
-  {num:'A05',name:'거울',          grp:'악세사리류'},
-  {num:'A06',name:'MK',            grp:'악세사리류'},
-  {num:'A07',name:'JA',            grp:'악세사리류'},
-  {num:'A08',name:'DS',            grp:'악세사리류'},
-  {num:'A09',name:'HTM',           grp:'악세사리류'},
+  {num:'A01',name:'선반',          grp:'악세사리류', d1:'3'},
+  {num:'A02',name:'4품 액세서리',  grp:'악세사리류', d1:'3'},
+  {num:'A03',name:'드라이어',      grp:'악세사리류', d1:'3'},
+  {num:'A04',name:'유아',          grp:'악세사리류', d1:'3'},
+  {num:'A05',name:'거울',          grp:'악세사리류', d1:'3'},
+  {num:'A06',name:'MK',            grp:'악세사리류', d1:'3'},
+  {num:'A07',name:'JA',            grp:'악세사리류', d1:'3'},
+  {num:'A08',name:'DS',            grp:'악세사리류', d1:'3'},
+  {num:'A09',name:'HTM',           grp:'악세사리류', d1:'3'},
 ];
 
 // ════════════════════════════════════════════
@@ -638,10 +645,10 @@ const V  = id => EL(id).value;
 const makeOpt = (val,txt) => { const o=document.createElement('option'); o.value=val; o.textContent=txt; return o; };
 const trow    = (k,v,w='18px') => `<tr><td style="font-family:monospace;color:#888;padding:2px 0;width:${w}">${k}</td><td>${v}</td></tr>`;
 const ci   = c => COLORS.find(x=>x.code===c)   || {code:c,name:c,hex:'#aaa'};
-const sn   = n => (sub1List.find(x=>x.num===n) || {name:n}).name;
+const sn   = (n, d1) => (sub1List.find(x=>x.num===n && x.d1===(d1||'1')) || sub1List.find(x=>x.num===n) || {name:n}).name;
 const mn   = c => (mfrList.find(x=>x.code===c) || {name:c}).name;
 const bn   = n => (BRANDS.find(x=>x.num===n)   || {name:n}).name;
-const un1  = (uc,sc) => (getUseList1(sc).find(x=>x.code===uc)||{name:uc}).name;
+const un1  = (uc,sc,d1) => (getUseList1(sc,d1).find(x=>x.code===uc)||{name:uc}).name;
 const getIT = code => (code&&code.length>=4&&ITYPE[code[3]]) ? code[3] : '';
 
 function syncFilter(id, keys, labelFn){
@@ -684,14 +691,14 @@ async function init(){
 //  자동 품목명 / 규격명
 // ════════════════════════════════════════════
 function autoName(){
-  const mat=V('m_mat'), brand=V('m_brand'), use=V('m_use'), col=V('m_col'), sub1=V('m_sub1');
+  const mat=V('m_mat'), brand=V('m_brand'), use=V('m_use'), col=V('m_col'), sub1=V('m_sub1'), d1=V('m_d1');
   if(!mat||!brand||!use||!col) return '';
-  const uN=getUseList1(sub1).find(x=>x.code===use)?.name||'';
+  const uN=getUseList1(sub1,d1).find(x=>x.code===use)?.name||'';
   return `${MAT_ALPHA[mat]||''}${BRAND_ALPHA[brand]||''} ${uN} ${col}`;
 }
 function autoSpec(){
-  const sub1=V('m_sub1'), use=V('m_use'), mat=V('m_mat'), brand=V('m_brand');
-  const specNum=getUseList1(sub1).find(x=>x.code===use)?.spec||'';
+  const sub1=V('m_sub1'), use=V('m_use'), mat=V('m_mat'), brand=V('m_brand'), d1=V('m_d1');
+  const specNum=getUseList1(sub1,d1).find(x=>x.code===use)?.spec||'';
   if(!specNum) return '';
   const mA=MAT_ALPHA[mat]||'';
   const bA=BRAND_ALPHA[brand]||'';
@@ -783,9 +790,9 @@ function populateSub1Sel(){
   }
 }
 function populateUseSel(){
-  const sub1=V('m_sub1'), list=getUseList1(sub1);
+  const sub1=V('m_sub1'), d1=V('m_d1'), list=getUseList1(sub1,d1);
   const sel=EL('m_use'); sel.innerHTML='<option value="">선택</option>';
-  if(USE_MAP1[sub1]&&sub1!=='01'){
+  if(USE_MAP1[d1+'-'+sub1]||(USE_MAP1[sub1]&&sub1!=='01')){
     list.forEach(u=>sel.appendChild(makeOpt(u.code,u.code+' — '+u.name)));
   } else {
     [
@@ -809,12 +816,12 @@ function populateBrandSel(){
   else      { BRANDS.forEach(b=>sel.appendChild(makeOpt(b.num,b.num+' — '+b.name))); }
 }
 function populateSerSel(){
-  const sub1=V('m_sub1');
-  const custom=getUseList3(sub1);
+  const sub1=V('m_sub1'), d1=V('m_d1');
+  const custom=getUseList3(sub1,d1);
   const sel=EL('m_ser'); sel.innerHTML='';
   if(custom){ custom.forEach(s=>sel.appendChild(makeOpt(s.code,s.code+' — '+s.name))); }
   else      { ['0','1','2','3','4','5','6','7','8','9'].forEach(n=>sel.appendChild(makeOpt(n,n))); }
-  EL('serLabel').textContent=SER_LABEL[sub1]||'소분류3 (1자리)';
+  EL('serLabel').textContent=SER_LABEL[(d1||'1')+'-'+sub1]||SER_LABEL[sub1]||'소분류3 (1자리)';
 }
 function populateColorSel(){
   const sel=EL('m_col'); sel.innerHTML='<option value="">선택</option>';
@@ -910,40 +917,46 @@ function renderGuides(){
 //  분류/제조사 관리
 // ════════════════════════════════════════════
 function renderSub1Mgr(){
-  const grps=[...new Set(sub1List.map(s=>s.grp))];
-  EL('sub1Tbody').innerHTML=grps.map(grp=>{
-    const rows=sub1List.filter(s=>s.grp===grp).map(s=>`<tr>
-      <td><span class="cpill">${s.num}</span></td>
-      <td><input value="${s.name}" style="width:100%;padding:4px 7px;border:1px solid #d0cfc8;border-radius:6px;font-size:12px"
-        onchange="updateSub1Name('${s.num}',this.value)"></td>
-      <td style="font-size:11px;color:#888">${s.grp}</td>
-      <td><button class="btn sm danger" onclick="delSub1('${s.num}')">삭제</button></td>
-    </tr>`).join('');
-    return `<tr><td colspan="4" style="padding:6px 10px 2px;font-size:11px;font-weight:500;color:#888;background:#f5f5f3">${grp}</td></tr>${rows}`;
+  const d1Labels={'1':'수전','2':'세면/양변기','3':'악세사리','4':'도기','5':'타일'};
+  const d1s=[...new Set(sub1List.map(s=>s.d1||'1'))].sort();
+  EL('sub1Tbody').innerHTML=d1s.map(d1=>{
+    const grps=[...new Set(sub1List.filter(s=>(s.d1||'1')===d1).map(s=>s.grp))];
+    const grpRows=grps.map(grp=>{
+      const rows=sub1List.filter(s=>s.grp===grp&&(s.d1||'1')===d1).map(s=>`<tr>
+        <td><span class="cpill">${s.num}</span></td>
+        <td><input value="${s.name}" style="width:100%;padding:4px 7px;border:1px solid #d0cfc8;border-radius:6px;font-size:12px"
+          onchange="updateSub1Name('${s.num}','${d1}',this.value)"></td>
+        <td style="font-size:11px;color:#888">${s.grp}</td>
+        <td><button class="btn sm danger" onclick="delSub1('${s.num}','${d1}')">삭제</button></td>
+      </tr>`).join('');
+      return `<tr><td colspan="4" style="padding:4px 10px 2px;font-size:11px;color:#888;background:#f5f5f3;padding-left:20px">${grp}</td></tr>${rows}`;
+    }).join('');
+    return `<tr><td colspan="4" style="padding:6px 10px 2px;font-size:12px;font-weight:600;color:#185FA5;background:#EEF5FB">${d1} — ${d1Labels[d1]||d1}</td></tr>${grpRows}`;
   }).join('');
 }
-async function updateSub1Name(num,v){
-  const s=sub1List.find(x=>x.num===num); if(!s) return;
+async function updateSub1Name(num,d1,v){
+  const s=sub1List.find(x=>x.num===num&&(x.d1||'1')===d1); if(!s) return;
   s.name=v.trim();
-  await sb.from('sub1_list').update({name:s.name}).eq('num',num);
+  await sb.from('sub1_list').update({name:s.name}).eq('num',num).eq('d1',d1);
 }
 async function addSub1(){
+  const d1=EL('newSub1D1').value;
   const num=EL('newSub1Num').value.trim();
   const name=EL('newSub1Name').value.trim();
   const grp=EL('newSub1Grp').value;
   if(!num||!name){alert('번호와 명칭을 입력하세요');return;}
-  if(sub1List.find(s=>s.num===num)){alert('이미 존재하는 번호입니다');return;}
-  const {error}=await sb.from('sub1_list').insert({num,name,grp});
+  if(sub1List.find(s=>s.num===num&&s.d1===d1)){alert('이미 존재하는 번호입니다');return;}
+  const {error}=await sb.from('sub1_list').insert({num,name,grp,d1});
   if(error){alert('추가 실패: '+error.message);return;}
-  sub1List.push({num,name,grp});
+  sub1List.push({num,name,grp,d1});
   EL('newSub1Num').value=''; EL('newSub1Name').value='';
   renderSub1Mgr();
 }
-async function delSub1(num){
+async function delSub1(num,d1){
   if(!confirm('삭제?'))return;
-  const {error}=await sb.from('sub1_list').delete().eq('num',num);
+  const {error}=await sb.from('sub1_list').delete().eq('num',num).eq('d1',d1);
   if(error){alert('삭제 실패: '+error.message);return;}
-  sub1List=sub1List.filter(s=>s.num!==num); renderSub1Mgr();
+  sub1List=sub1List.filter(s=>!(s.num===num&&(s.d1||'1')===d1)); renderSub1Mgr();
 }
 
 function renderMfrMgr(){
@@ -1113,7 +1126,7 @@ function render(){
       <td style="font-size:11px;color:#888">${i.spec||'-'}</td>
       <td style="text-align:center">${itBadge}</td>
       <td><span class="cbadge">${D1[i.d1]||i.d1}</span></td>
-      <td style="font-size:11px">${sn(i.sub1)}</td>
+      <td style="font-size:11px">${sn(i.sub1,i.d1)}</td>
       <td style="font-size:11px">${mn(i.mfr)}</td>
       <td>${colDot}<span style="font-size:11px">${col.name}</span></td>
       <td>${i.cost?Number(i.cost).toLocaleString('ko-KR')+'원':'-'}</td>
@@ -1150,7 +1163,7 @@ function exportCSV(){
       i.code, i.name, i.spec||'',
       it?(ITYPE[it]||{label:it}).label:'',
       D1[i.d1]||i.d1, MAT[i.mat]||i.mat,
-      sn(i.sub1), un1(i.use,i.sub1), bn(i.brand), i.ser,
+      sn(i.sub1,i.d1), un1(i.use,i.sub1,i.d1), bn(i.brand), i.ser,
       mn(i.mfr), i.color,
       i.cost, i.price, i.stock, i.supplier, i.memo,
     ].map(v=>`"${(v||'').toString().replace(/"/g,'""')}"`);
