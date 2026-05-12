@@ -267,8 +267,8 @@ tr:hover td{background:#fafaf8}
             <div id="mfrDropdown" style="display:none;position:absolute;top:100%;left:0;right:0;background:#fff;border:1px solid #d0cfc8;border-radius:8px;max-height:200px;overflow-y:auto;z-index:200;box-shadow:0 4px 12px rgba(0,0,0,.1);margin-top:2px"></div>
           </div>
         </div>
-        <div class="fg"><label>컬러 *</label>
-          <select id="m_col" onchange="genCode()"><option value="">선택</option></select>
+        <div class="fg"><label>컬러</label>
+          <select id="m_col" onchange="genCode()"><option value="">선택 안 함</option></select>
         </div>
         <div class="fg">
           <label>코드 직접 수정</label>
@@ -729,12 +729,12 @@ function genCode(){
   const d1=V('m_d1'), mat=V('m_mat'), sub1=V('m_sub1'), itype=V('m_itype');
   const use=V('m_use'), brand=V('m_brand'), ser=V('m_ser')||'0';
   const mfr=EL('m_mfr').value, col=V('m_col');
-  if(!d1||!mat||!sub1||!itype||!use||!brand||!mfr||!col){
+  if(!d1||!mat||!sub1||!itype||!use||!brand||!mfr){
     EL('codePreview').textContent='—'; EL('codeParts').innerHTML=''; EL('m_code').value=''; return;
   }
   const major  = `${d1}${mat}${itype}${sub1.padStart(2,'0')}`;
   const middle = `${use.padStart(2,'0')}${brand.padStart(2,'0')}${ser}`;
-  const code   = `${major}-${middle}-${mfr}-${col}`;
+  const code   = col ? `${major}-${middle}-${mfr}-${col}` : `${major}-${middle}-${mfr}`;
   EL('codePreview').textContent=code;
   EL('m_code').value=code;
   checkDupCode();
@@ -747,7 +747,7 @@ function genCode(){
     {v:brand.padStart(2,'0'), l:'소분류2'},
     {v:ser,                   l:'소분류3'},
     {v:mfr,                   l:'제조사'},
-    {v:col,                   l:'컬러'},
+    ...(col?[{v:col, l:'컬러'}]:[]),
   ].map((p,i,a)=>{
     const r=i===0?'border-radius:4px 0 0 4px':i===a.length-1?'border-radius:0 4px 4px 0':'';
     const bl=i>0?'border-left:none':'';
@@ -1060,7 +1060,6 @@ async function saveItem(){
   if(!use)   {alert('소분류1을 선택하세요');return;}
   if(!brand) {alert('소분류2를 선택하세요');return;}
   if(!mfr)   {alert('제조사/계열사를 선택하세요');return;}
-  if(!col)   {alert('컬러를 선택하세요');return;}
   const code=EL('m_code').value.trim()||EL('codePreview').textContent;
   if(!code||code==='—'){alert('코드가 생성되지 않았습니다. 필수 항목을 확인하세요.');return;}
   const dup=items.find(i=>i.code===code&&i.id!==editId);
