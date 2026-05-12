@@ -289,6 +289,7 @@ tr:hover td{background:#fafaf8}
         <div class="fg"><label>원가 (원)</label><input id="m_cost" type="number" placeholder="0"></div>
         <div class="fg"><label>판매가 (원)</label><input id="m_price" type="number" placeholder="0"></div>
         <div class="fg"><label>재고 수량</label><input id="m_stock" type="number" placeholder="0"></div>
+        <div class="fg"><label>박스당 수량</label><input id="m_box_qty" type="number" placeholder="0"></div>
         <div class="fg f2"><label>구매처</label><input id="m_supplier"></div>
         <div class="fg ffull"><label>비고</label><textarea id="m_memo" placeholder="특이사항 등"></textarea></div>
       </div>
@@ -972,7 +973,7 @@ function openAdd(){
   EL('mTitle').textContent='품목 등록';
   populateSub1Sel(); populateUseSel(); populateBrandSel(); populateSerSel(); populateColorSel();
   resetMfrSearch();
-  ['cost','price','stock','supplier','memo'].forEach(f=>EL('m_'+f).value='');
+  ['cost','price','stock','box_qty','supplier','memo'].forEach(f=>EL('m_'+f).value='');
   ['d1','mat','itype','sub1','use','brand','col'].forEach(f=>EL('m_'+f).value='');
   EL('m_ser').value='0'; EL('m_code').value='';
   const ne=EL('m_name'); ne.value=''; delete ne.dataset.manual;
@@ -996,7 +997,8 @@ function openEdit(id){
   EL('m_itype').value=i.itype||''; EL('m_brand').value=i.brand||'';
   EL('m_ser').value=i.ser||'0';    EL('m_col').value=i.color||'';
   EL('m_cost').value=i.cost||'';   EL('m_price').value=i.price||'';
-  EL('m_stock').value=i.stock||''; EL('m_supplier').value=i.supplier||'';
+  EL('m_stock').value=i.stock||''; EL('m_box_qty').value=i.box_qty||'';
+  EL('m_supplier').value=i.supplier||'';
   EL('m_memo').value=i.memo||'';   EL('m_code').value=i.code||'';
   // 제조사 검색창 복원
   const mfrItem=mfrList.find(m=>m.code===i.mfr);
@@ -1040,6 +1042,7 @@ async function saveItem(){
     cost:  Number(EL('m_cost').value)||0,
     price: Number(EL('m_price').value)||0,
     stock: Number(EL('m_stock').value)||0,
+    box_qty: Number(EL('m_box_qty').value)||0,
     supplier: EL('m_supplier').value.trim(),
     memo:     EL('m_memo').value.trim(),
   };
