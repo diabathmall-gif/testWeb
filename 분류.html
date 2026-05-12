@@ -1,0 +1,1148 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>수전 품목 관리</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f5f5f3;color:#1a1a1a;font-size:14px}
+.wrap{max-width:1300px;margin:0 auto;padding:1.5rem 1rem}
+h1{font-size:18px;font-weight:500;margin-bottom:1.25rem}
+.btn{height:36px;padding:0 14px;border:1px solid #d0cfc8;border-radius:8px;background:#fff;font-size:13px;cursor:pointer;white-space:nowrap}
+.btn:hover{background:#f0eeea}
+.btn.primary{background:#185FA5;color:#fff;border-color:#185FA5}
+.btn.primary:hover{background:#0C447C}
+.btn.sm{height:28px;padding:0 10px;font-size:12px}
+.btn.danger{color:#A32D2D;border-color:#f09595}
+.btn.danger:hover{background:#fcebeb}
+.tab-bar{display:flex;gap:4px;margin-bottom:1rem;border-bottom:1px solid #e8e6e0}
+.tab{padding:7px 14px;font-size:13px;cursor:pointer;border-bottom:2px solid transparent;color:#888;background:none;border-top:none;border-left:none;border-right:none}
+.tab.active{color:#185FA5;border-bottom-color:#185FA5;font-weight:500}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:1rem}
+.stat{background:#fff;border-radius:8px;padding:.65rem 1rem;border:1px solid #e8e6e0}
+.stat .lbl{font-size:11px;color:#888;margin-bottom:2px}
+.stat .val{font-size:18px;font-weight:500}
+.topbar{display:flex;gap:6px;align-items:center;margin-bottom:1rem;flex-wrap:wrap}
+.topbar input{flex:1;min-width:160px;height:36px;padding:0 12px;border:1px solid #d0cfc8;border-radius:8px;background:#fff;font-size:13px}
+.topbar select{height:36px;padding:0 8px;border:1px solid #d0cfc8;border-radius:8px;background:#fff;font-size:12px}
+.tbl-wrap{overflow-x:auto;border:1px solid #e8e6e0;border-radius:12px;background:#fff}
+table{width:100%;border-collapse:collapse;font-size:12px;table-layout:fixed}
+th{padding:9px 10px;text-align:left;font-weight:500;font-size:11px;color:#888;border-bottom:1px solid #e8e6e0;white-space:nowrap}
+td{padding:9px 10px;border-bottom:1px solid #f0eeea;color:#1a1a1a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;vertical-align:middle}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:#fafaf8}
+.empty{text-align:center;padding:2.5rem;color:#888;font-size:13px}
+.cpill{display:inline-block;padding:2px 7px;border-radius:4px;font-size:11px;font-family:monospace;background:#f0eeea;border:1px solid #e8e6e0;color:#5f5e5a;letter-spacing:.4px}
+.badge{display:inline-block;padding:2px 7px;border-radius:999px;font-size:11px;font-weight:500}
+.b-ok{background:#EAF3DE;color:#3B6D11}
+.b-low{background:#FAEEDA;color:#854F0B}
+.b-zero{background:#FCEBEB;color:#A32D2D}
+.cbadge{display:inline-block;padding:2px 6px;border-radius:4px;font-size:10px;background:#E6F1FB;color:#185FA5}
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:flex-start;justify-content:center;padding-top:2rem;z-index:100}
+.modal{background:#fff;border-radius:12px;border:1px solid #e8e6e0;width:660px;max-width:96vw;padding:1.5rem;max-height:88vh;overflow-y:auto}
+.modal h3{font-size:15px;font-weight:500;margin-bottom:.9rem}
+.code-preview{background:#f5f5f3;border:1px solid #e8e6e0;border-radius:8px;padding:10px 14px;margin-bottom:.9rem}
+.code-preview .cl{font-size:11px;color:#888;margin-bottom:4px}
+.code-preview .cv{font-family:monospace;font-size:15px;font-weight:500;color:#185FA5;letter-spacing:1px}
+.parts{display:flex;flex-wrap:wrap;gap:0;margin-top:6px;font-size:10px}
+.part{padding:3px 8px;background:#fff;border:1px solid #e8e6e0;color:#888;font-family:monospace}
+.part:first-child{border-radius:4px 0 0 4px}
+.part:last-child{border-radius:0 4px 4px 0}
+.part-lbl{display:block;font-size:9px;color:#aaa;margin-top:1px;font-family:sans-serif}
+.fgrid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:7px 12px}
+.ffull{grid-column:1/-1}
+.f2{grid-column:span 2}
+.fg label{display:block;font-size:11px;color:#888;margin-bottom:3px}
+.fg input,.fg select,.fg textarea{width:100%;padding:7px 9px;border:1px solid #d0cfc8;border-radius:8px;background:#fff;font-size:13px;font-family:inherit}
+.fg textarea{resize:vertical;min-height:48px}
+.sdiv{grid-column:1/-1;border-top:1px solid #e8e6e0;padding-top:8px;margin-top:3px;font-size:11px;color:#888;font-weight:500}
+.mfooter{display:flex;justify-content:flex-end;gap:8px;margin-top:1rem}
+.auto-field{display:flex;gap:6px}
+.auto-field input{flex:1}
+@media(max-width:600px){.stats{grid-template-columns:repeat(2,1fr)}.fgrid{grid-template-columns:1fr 1fr}}
+.loading-overlay{position:fixed;inset:0;background:rgba(255,255,255,.85);display:flex;align-items:center;justify-content:center;z-index:999;font-size:14px;color:#888;gap:8px}
+</style>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+<div id="loadingOverlay" class="loading-overlay" style="display:none">불러오는 중...</div>
+<div class="wrap">
+<h1>수전 품목 관리</h1>
+<div id="app">
+  <div class="tab-bar">
+    <button class="tab active" onclick="setTab('list',this)">품목 목록</button>
+    <button class="tab" onclick="setTab('code',this)">코드 체계</button>
+    <button class="tab" onclick="setTab('mgr',this)">분류/제조사 관리</button>
+  </div>
+
+  <!-- 품목 목록 -->
+  <div id="tab-list">
+    <div class="topbar">
+      <input type="text" id="searchInput" placeholder="품목명, 코드, 규격 검색..." oninput="render()">
+      <select id="f_itype" onchange="render()">
+        <option value="">전체 유형</option>
+        <option value="R">R 원재료</option>
+        <option value="P">P 상품</option>
+        <option value="G">G 제품</option>
+      </select>
+      <select id="f_d1"   onchange="render()"><option value="">전체 대분류</option></select>
+      <select id="f_sub1" onchange="render()"><option value="">전체 소분류</option></select>
+      <select id="f_mfr"  onchange="render()"><option value="">전체 제조사</option></select>
+      <select id="f_col"  onchange="render()"><option value="">전체 컬러</option></select>
+      <button class="btn" onclick="exportCSV()">CSV 내보내기</button>
+      <button class="btn primary" onclick="openAdd()">+ 품목 등록</button>
+    </div>
+    <div class="stats" id="stats"></div>
+    <div class="tbl-wrap">
+      <table>
+        <colgroup>
+          <col style="width:150px"><col style="width:145px"><col style="width:65px">
+          <col style="width:52px"><col style="width:68px"><col style="width:72px">
+          <col style="width:68px"><col style="width:58px"><col style="width:68px">
+          <col style="width:68px"><col style="width:52px"><col style="width:88px">
+        </colgroup>
+        <thead><tr>
+          <th>품목코드</th><th>품목명</th><th>규격</th>
+          <th>유형</th><th>대분류</th><th>소분류</th>
+          <th>제조사</th><th>컬러</th><th>원가</th>
+          <th>판매가</th><th>재고</th><th>관리</th>
+        </tr></thead>
+        <tbody id="tbody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- 코드 체계 -->
+  <div id="tab-code" style="display:none">
+    <div style="background:#fff;border-radius:12px;border:1px solid #e8e6e0;padding:1.25rem;font-size:13px;line-height:1.9">
+      <p style="font-weight:500;font-size:14px;margin-bottom:.5rem">코드 구조</p>
+      <p style="font-family:monospace;font-size:13px;color:#185FA5;font-weight:500;margin-bottom:.4rem">
+        업종(1)+재료(2)+유형(R/P/G)+소분류(2) - 소분류1(2)+소분류2(2)+소분류3(1) - 제조사 - 컬러
+      </p>
+      <p style="color:#888;font-size:12px;margin-bottom:1rem">
+        예시: <span style="font-family:monospace;font-weight:500;color:#1a1a1a">101R01-011151-132-CR</span>
+        → 수전/브라스/원재료/수전몸통 / 소분류1(01·규격4001)/소분류2(11)/소분류3(1) / 알리플 / Chrome
+      </p>
+      <hr style="border:none;border-top:1px solid #e8e6e0;margin:.75rem 0">
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:1rem;font-size:12px">
+        <div>
+          <p style="font-weight:500;margin-bottom:.4rem">업종 (1자리)</p>
+          <table style="width:100%;margin-bottom:.75rem" id="d1Guide"></table>
+          <p style="font-weight:500;margin-bottom:.4rem">재료 (2자리)</p>
+          <table style="width:100%" id="matGuide"></table>
+        </div>
+        <div>
+          <p style="font-weight:500;margin-bottom:.4rem">품목유형</p>
+          <table style="width:100%;margin-bottom:.75rem">
+            <tr><td style="font-family:monospace;color:#3B6D11;padding:2px 0;width:20px;font-weight:500">R</td><td>원재료</td></tr>
+            <tr><td style="font-family:monospace;color:#185FA5;padding:2px 0;font-weight:500">P</td><td>상품</td></tr>
+            <tr><td style="font-family:monospace;color:#854F0B;padding:2px 0;font-weight:500">G</td><td>제품</td></tr>
+          </table>
+          <p style="font-weight:500;margin-bottom:.4rem">소분류 (BOM)</p>
+          <div id="sub1Guide" style="font-size:11px"></div>
+        </div>
+        <div>
+          <p style="font-weight:500;margin-bottom:.4rem">컬러</p>
+          <table style="width:100%" id="colorGuide"></table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 분류/제조사 관리 -->
+  <div id="tab-mgr" style="display:none">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem">
+      <div>
+        <p style="font-size:13px;font-weight:500;margin-bottom:.5rem">소분류 (BOM) 관리</p>
+        <div style="display:flex;gap:6px;margin-bottom:.5rem">
+          <input id="newSub1Num"  placeholder="번호" style="width:80px;height:32px;padding:0 8px;border:1px solid #d0cfc8;border-radius:8px;font-size:12px;font-family:monospace">
+          <input id="newSub1Name" placeholder="명칭" style="flex:1;height:32px;padding:0 8px;border:1px solid #d0cfc8;border-radius:8px;font-size:12px">
+          <select id="newSub1Grp" style="height:32px;padding:0 7px;border:1px solid #d0cfc8;border-radius:8px;font-size:12px"></select>
+          <button class="btn sm primary" onclick="addSub1()">추가</button>
+        </div>
+        <div class="tbl-wrap">
+          <table style="table-layout:fixed">
+            <colgroup><col style="width:55px"><col><col style="width:95px"><col style="width:45px"></colgroup>
+            <thead><tr><th>번호</th><th>명칭</th><th>그룹</th><th>관리</th></tr></thead>
+            <tbody id="sub1Tbody"></tbody>
+          </table>
+        </div>
+      </div>
+      <div>
+        <p style="font-size:13px;font-weight:500;margin-bottom:.5rem">제조사/계열사 관리</p>
+        <div style="display:flex;gap:6px;margin-bottom:.5rem">
+          <input id="newMfrCode" placeholder="코드" style="width:80px;height:32px;padding:0 8px;border:1px solid #d0cfc8;border-radius:8px;font-size:12px;font-family:monospace">
+          <input id="newMfrName" placeholder="명칭" style="flex:1;height:32px;padding:0 8px;border:1px solid #d0cfc8;border-radius:8px;font-size:12px">
+          <select id="newMfrType" style="height:32px;padding:0 7px;border:1px solid #d0cfc8;border-radius:8px;font-size:12px">
+            <option value="제조사">제조사</option>
+            <option value="계열사">계열사</option>
+          </select>
+          <button class="btn sm primary" onclick="addMfr()">추가</button>
+        </div>
+        <div class="tbl-wrap">
+          <table style="table-layout:fixed">
+            <colgroup><col style="width:60px"><col><col style="width:55px"><col style="width:45px"></colgroup>
+            <thead><tr><th>코드</th><th>명칭</th><th>구분</th><th>관리</th></tr></thead>
+            <tbody id="mfrTbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 모달 -->
+<div id="modal" style="display:none">
+  <div class="overlay" onclick="if(event.target===this)closeModal()">
+    <div class="modal">
+      <h3 id="mTitle">품목 등록</h3>
+      <div class="code-preview">
+        <div class="cl">자동 생성 코드</div>
+        <div class="cv" id="codePreview">—</div>
+        <div class="parts" id="codeParts"></div>
+      </div>
+      <div class="fgrid">
+        <div class="sdiv">대분류</div>
+        <div class="fg"><label>업종 *</label>
+          <select id="m_d1" onchange="genCode()">
+            <option value="">선택</option>
+            <option value="1">1 — 수전</option>
+            <option value="2">2 — 세면/양변기부속</option>
+            <option value="3">3 — 악세사리</option>
+            <option value="4">4 — 도기</option>
+            <option value="5">5 — 타일</option>
+          </select>
+        </div>
+        <div class="fg"><label>재료 *</label>
+          <select id="m_mat" onchange="genCode()">
+            <option value="">선택</option>
+            <option value="01">01 — 브라스(B)</option>
+            <option value="02">02 — 스테인리스(S)</option>
+            <option value="03">03 — 이중POM(P)</option>
+            <option value="04">04 — 사출(G)</option>
+            <option value="05">05 — 아연(Z)</option>
+            <option value="06">06 — 세라믹(C)</option>
+            <option value="07">07 — 알루미늄(A)</option>
+          </select>
+        </div>
+        <div class="fg"><label>품목유형 *</label>
+          <select id="m_itype" onchange="genCode()">
+            <option value="">선택</option>
+            <option value="R">R — 원재료</option>
+            <option value="P">P — 상품</option>
+            <option value="G">G — 제품</option>
+          </select>
+        </div>
+        <div class="fg"><label>소분류 *</label>
+          <select id="m_sub1" onchange="onSub1Change()"><option value="">선택</option></select>
+        </div>
+
+        <div class="sdiv">중분류</div>
+        <div class="fg"><label>소분류1 *</label>
+          <select id="m_use" onchange="onUseChange()"><option value="">선택</option></select>
+        </div>
+        <div class="fg"><label>소분류2 *</label>
+          <select id="m_brand" onchange="onBrandChange()"><option value="">선택</option></select>
+        </div>
+        <div class="fg"><label id="serLabel">소분류3 (1자리)</label>
+          <select id="m_ser" onchange="genCode()"></select>
+        </div>
+
+        <div class="sdiv">제조사 · 컬러</div>
+        <div class="fg">
+          <label>제조사/계열사 *</label>
+          <div style="position:relative">
+            <input id="m_mfr_search" placeholder="코드 또는 이름 검색..."
+              style="width:100%;padding:7px 9px;border:1px solid #d0cfc8;border-radius:8px;font-size:13px"
+              oninput="filterMfrList()" onfocus="filterMfrList()" autocomplete="off">
+            <input type="hidden" id="m_mfr">
+            <div id="mfrDropdown" style="display:none;position:absolute;top:100%;left:0;right:0;background:#fff;border:1px solid #d0cfc8;border-radius:8px;max-height:200px;overflow-y:auto;z-index:200;box-shadow:0 4px 12px rgba(0,0,0,.1);margin-top:2px"></div>
+          </div>
+        </div>
+        <div class="fg"><label>컬러 *</label>
+          <select id="m_col" onchange="genCode()"><option value="">선택</option></select>
+        </div>
+        <div class="fg">
+          <label>코드 직접 수정</label>
+          <input id="m_code" placeholder="자동 생성됨" oninput="codeManual=true;checkDupCode()">
+          <div id="codeDupMsg" style="font-size:11px;color:#A32D2D;margin-top:3px;display:none"></div>
+        </div>
+
+        <div class="sdiv">품목 정보</div>
+        <div class="fg ffull">
+          <label>품목명 * <span id="nameAutoTag" style="font-size:10px;color:#185FA5;margin-left:4px">자동생성</span></label>
+          <div class="auto-field">
+            <input id="m_name" placeholder="자동생성됩니다"
+              oninput="this.dataset.manual='1';EL('nameAutoTag').textContent='수동입력';EL('nameAutoTag').style.color='#854F0B'">
+            <button type="button" class="btn sm" onclick="resetAutoName()">↺ 초기화</button>
+          </div>
+        </div>
+        <div class="fg ffull">
+          <label>규격명 <span id="specAutoTag" style="font-size:10px;color:#185FA5;margin-left:4px">자동입력</span></label>
+          <div class="auto-field">
+            <input id="m_spec" placeholder="소분류1·재료·소분류2 선택 시 자동입력"
+              oninput="this.dataset.manual='1';EL('specAutoTag').textContent='수동입력';EL('specAutoTag').style.color='#854F0B'">
+            <button type="button" class="btn sm" onclick="resetAutoSpec()">↺ 초기화</button>
+          </div>
+        </div>
+        <div class="fg"><label>원가 (원)</label><input id="m_cost" type="number" placeholder="0"></div>
+        <div class="fg"><label>판매가 (원)</label><input id="m_price" type="number" placeholder="0"></div>
+        <div class="fg"><label>재고 수량</label><input id="m_stock" type="number" placeholder="0"></div>
+        <div class="fg f2"><label>구매처</label><input id="m_supplier"></div>
+        <div class="fg ffull"><label>비고</label><textarea id="m_memo" placeholder="특이사항 등"></textarea></div>
+      </div>
+      <div class="mfooter">
+        <button class="btn" onclick="closeModal()">취소</button>
+        <button class="btn primary" onclick="saveItem()">저장</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ════════════════════════════════════════════
+//  Supabase 초기화
+// ════════════════════════════════════════════
+const SUPABASE_URL = 'https://htxihjzyjeacpueassvt.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imh0eGloanp5amVhY3B1ZWFzc3Z0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg1MTQ5MTAsImV4cCI6MjA5NDA5MDkxMH0.trO5wpIPdv7ar_awJZh0umhlKQAUZXoZEQGgRV0EFfE';
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+// ════════════════════════════════════════════
+//  기준 데이터
+// ════════════════════════════════════════════
+const D1 = {1:'수전',2:'세면/양변기부속',3:'악세사리',4:'도기',5:'타일'};
+const MAT = {'01':'브라스(B)','02':'스테인리스(S)','03':'이중POM(P)','04':'사출(G)','05':'아연(Z)','06':'세라믹(C)','07':'알루미늄(A)'};
+const MAT_ALPHA = {'01':'B','02':'S','03':'P','04':'G','05':'Z','06':'C','07':'A'};
+const ITYPE = {
+  R:{label:'원재료',bg:'#EAF3DE',cl:'#3B6D11'},
+  P:{label:'상품',  bg:'#E6F1FB',cl:'#185FA5'},
+  G:{label:'제품',  bg:'#FAEEDA',cl:'#854F0B'},
+};
+const COLORS = [
+  {code:'CR',name:'Chrome',        hex:'#c8c8c8'},
+  {code:'BN',name:'Brushed Nickel',hex:'#8a9ba8'},
+  {code:'MG',name:'Matt Gray',     hex:'#888780'},
+  {code:'MB',name:'Matt Black',    hex:'#2c2c2a'},
+  {code:'BG',name:'Brushed Gold',  hex:'#d4af37'},
+  {code:'BR',name:'Black Rose',    hex:'#7b3f5e'},
+  {code:'RG',name:'Rose Gold',     hex:'#b76e79'},
+  {code:'WM',name:'Matt White',    hex:'#e8e8e4'},
+  {code:'GR',name:'Gray',          hex:'#5f5e5a'},
+  {code:'W', name:'White',         hex:'#f0eeea'},
+  {code:'B', name:'Black',         hex:'#1a1a1a'},
+];
+const GRPS = ['본체/핸들류','내부부품류','연결/배관류','구조/동봉부품류','소모/밀봉류','포장/문서류','악세사리류'];
+
+// ════════════════════════════════════════════
+//  소분류1 목록 (소분류별, spec=규격번호)
+// ════════════════════════════════════════════
+const USE_MAP1 = {
+  // ── 수전 ──────────────────────────────────
+  '01': [ // 수전몸통
+    {code:'01',name:'투홀세면전면',      spec:'4001'}, {code:'02',name:'투홀세면측면',      spec:'4002'},
+    {code:'03',name:'투홀세면자바라',    spec:'4003'}, {code:'04',name:'투홀세면파이프',    spec:'4004'},
+    {code:'05',name:'투홀세면샤워전면',  spec:'4601'}, {code:'06',name:'투홀세면샤워측면',  spec:'4602'},
+    {code:'07',name:'투홀세면샤워자바라',spec:'4603'}, {code:'08',name:'투홀세면샤워파이프',spec:'4604'},
+    {code:'09',name:'원홀세면전면',      spec:'3001'}, {code:'10',name:'원홀세면측면',      spec:'3002'},
+    {code:'11',name:'원홀세면자바라',    spec:'3003'}, {code:'12',name:'원홀세면파이프',    spec:'3004'},
+    {code:'13',name:'원홀세면샤워전면',  spec:'3601'}, {code:'14',name:'원홀세면샤워측면',  spec:'3602'},
+    {code:'15',name:'원홀세면샤워자바라',spec:'3603'}, {code:'16',name:'원홀세면샤워파이프',spec:'3604'},
+    {code:'17',name:'원홀주방전면',      spec:'3801'}, {code:'18',name:'원홀주방측면',      spec:'3802'},
+    {code:'19',name:'원홀자바라',        spec:'3803'}, {code:'20',name:'원홀주방파이프ㄱ',  spec:'3804'},
+    {code:'21',name:'원홀주방파이프7',   spec:'3805'}, {code:'22',name:'원홀주방거워목',    spec:'3806'},
+    {code:'23',name:'원홀 3~6way',       spec:'3807'}, {code:'24',name:'원홀측면자바라',    spec:'3808'},
+    {code:'25',name:'주방전면',          spec:'8001'}, {code:'26',name:'주방측면',          spec:'8002'},
+    {code:'27',name:'주방자바라',        spec:'8003'}, {code:'28',name:'주방파이프',        spec:'8004'},
+    {code:'29',name:'사워기전면',        spec:'6001'}, {code:'30',name:'사워기측면',        spec:'6002'},
+    {code:'31',name:'사워자바라',        spec:'6003'}, {code:'32',name:'샤워파이프',        spec:'6004'},
+    {code:'33',name:'줄사워',            spec:'6005'}, {code:'34',name:'다이얼식',          spec:'6006'},
+    {code:'35',name:'회전식',            spec:'6007'}, {code:'36',name:'회전식1',           spec:'6008'},
+    {code:'37',name:'회전식2',           spec:'6009'},
+  ],
+  '02': [ // 샤워바몸통
+    {code:'01',name:'전면식',    spec:'16001'}, {code:'02',name:'측면식',    spec:'16002'},
+    {code:'03',name:'회전식',    spec:'16003'}, {code:'04',name:'파이프식',  spec:'16004'},
+    {code:'05',name:'줄사워식',  spec:'16005'}, {code:'06',name:'토수구무',  spec:'16006'},
+    {code:'07',name:'선반식',    spec:'16007'}, {code:'08',name:'버튼식',    spec:'16008'},
+    {code:'09',name:'슬라이드바',spec:'16101'},
+  ],
+  '03': [ // 앵글밸브몸통
+    {code:'01',name:'무연마'},{code:'02',name:'연마'},
+    {code:'03',name:'타원'},  {code:'04',name:'십자'},
+  ],
+  '04': [ // 일반꼭지몸통
+    {code:'01',name:'일자 신주'}, {code:'02',name:'일자 사출'},
+    {code:'03',name:'십자 신주'}, {code:'04',name:'십자 사출'},
+    {code:'05',name:'세라믹'},    {code:'06',name:'교체용자바라꼭지'},
+    {code:'07',name:'몸통'},      {code:'08',name:'십자 스텐'},
+  ],
+  '10': [ // T볼트 대너트
+    {code:'01',name:'스텐'},{code:'02',name:'동도금'},{code:'03',name:'활동'},
+  ],
+  // ── 악세사리 ──────────────────────────────
+  'A01': [ // 선반
+    {code:'01',name:'코너선반'},{code:'02',name:'일자선반'},
+  ],
+  'A02': [ // 4품 액세서리
+    {code:'01',name:'세트'},           {code:'02',name:'비누대'},
+    {code:'03',name:'수건걸이'},       {code:'04',name:'컵대'},
+    {code:'05',name:'휴지걸이'},       {code:'06',name:'휴지걸이(핸드폰거치대)'},
+    {code:'07',name:'옷걸이'},         {code:'08',name:'고리'},
+  ],
+};
+const USE_DEFAULT = USE_MAP1['01'];
+function getUseList1(sub1){ return USE_MAP1[sub1] || USE_DEFAULT; }
+
+// ════════════════════════════════════════════
+//  소분류2 목록 (소분류+소분류1 조합별)
+//  없으면 → 브랜드(BRANDS) 기본 사용
+// ════════════════════════════════════════════
+const USE_MAP2 = {
+  // 앵글밸브몸통 — 규격
+  '03': [
+    {code:'01',name:'소형 (115g)'},  {code:'02',name:'일반 (120g)'},
+    {code:'03',name:'중형 (130g)'},  {code:'04',name:'중대형 (140g)'},
+    {code:'05',name:'대형 (150g)'},  {code:'06',name:'특대형 (180g)'},
+    {code:'07',name:'분리형'},        {code:'08',name:'다용도'},
+    {code:'09',name:'45mm'},          {code:'10',name:'50mm'},
+    {code:'11',name:'60mm'},
+  ],
+  // 일반꼭지몸통: 01~05 동일, 06/07/08 별도
+  '04-01':[
+    {code:'01',name:'일체형 가로꼭지'},    {code:'02',name:'일체형 커플링 꼭지'},
+    {code:'03',name:'분리형 가로꼭지'},    {code:'04',name:'분리형 커플링 꼭지'},
+    {code:'05',name:'두갈래꼭지'},         {code:'06',name:'더블 두갈래 가로꼭지'},
+    {code:'07',name:'20mm꼭지'},
+  ],
+  '04-02':[
+    {code:'01',name:'일체형 가로꼭지'},    {code:'02',name:'일체형 커플링 꼭지'},
+    {code:'03',name:'분리형 가로꼭지'},    {code:'04',name:'분리형 커플링 꼭지'},
+    {code:'05',name:'두갈래꼭지'},         {code:'06',name:'더블 두갈래 가로꼭지'},
+    {code:'07',name:'20mm꼭지'},
+  ],
+  '04-03':[
+    {code:'01',name:'일체형 가로꼭지'},    {code:'02',name:'일체형 커플링 꼭지'},
+    {code:'03',name:'분리형 가로꼭지'},    {code:'04',name:'분리형 커플링 꼭지'},
+    {code:'05',name:'두갈래꼭지'},         {code:'06',name:'더블 두갈래 가로꼭지'},
+    {code:'07',name:'20mm꼭지'},
+  ],
+  '04-04':[
+    {code:'01',name:'일체형 가로꼭지'},    {code:'02',name:'일체형 커플링 꼭지'},
+    {code:'03',name:'분리형 가로꼭지'},    {code:'04',name:'분리형 커플링 꼭지'},
+    {code:'05',name:'두갈래꼭지'},         {code:'06',name:'더블 두갈래 가로꼭지'},
+    {code:'07',name:'20mm꼭지'},
+  ],
+  '04-05':[
+    {code:'01',name:'일체형 가로꼭지'},    {code:'02',name:'일체형 커플링 꼭지'},
+    {code:'03',name:'분리형 가로꼭지'},    {code:'04',name:'분리형 커플링 꼭지'},
+    {code:'05',name:'두갈래꼭지'},         {code:'06',name:'더블 두갈래 가로꼭지'},
+    {code:'07',name:'20mm꼭지'},
+  ],
+  '04-06':[
+    {code:'01',name:'가로단수자바라'},{code:'02',name:'세로단수자바라'},
+  ],
+  '04-07':[
+    {code:'01',name:'일체형'},{code:'02',name:'일체형 커플링'},
+    {code:'03',name:'킹원스톨'},{code:'04',name:'20mm'},
+  ],
+  '04-08':[
+    {code:'01',name:'일체형 가로꼭지'},    {code:'02',name:'일체형 커플링 꼭지'},
+    {code:'03',name:'두갈래꼭지'},         {code:'04',name:'더블 두갈래 가로꼭지'},
+  ],
+  // 악세사리: 소분류2 = 브랜드(기본)와 동일 → null 반환으로 BRANDS 사용
+};
+function getUseList2(sub1,use){
+  return USE_MAP2[sub1+'-'+use] || USE_MAP2[sub1] || null;
+}
+
+// ════════════════════════════════════════════
+//  소분류3 목록 (소분류별)
+// ════════════════════════════════════════════
+const USE_MAP3 = {
+  '03':[{code:'0',name:'해당없음'},{code:'1',name:'십자'},{code:'2',name:'타원'}],
+  '04':[{code:'0',name:'해당없음'},{code:'1',name:'냉수'},{code:'2',name:'온수'}],
+  'A01':[{code:'0',name:'일단'},{code:'1',name:'이단'}],
+  'A02':[
+    {code:'0',name:'0'},{code:'1',name:'1'},{code:'2',name:'2'},{code:'3',name:'3'},
+    {code:'4',name:'4'},{code:'5',name:'5'},{code:'6',name:'6'},{code:'7',name:'7'},
+  ],
+};
+const SER_LABEL = {
+  '03':'소분류3 (핸들모양)',
+  '04':'소분류3 (냉/온)',
+  'A01':'소분류3 (구분)',
+  'A02':'소분류3 (시리즈번호)',
+};
+function getUseList3(sub1){ return USE_MAP3[sub1] || null; }
+
+// ════════════════════════════════════════════
+//  브랜드 (소분류2 기본값)
+// ════════════════════════════════════════════
+let BRANDS = [
+  {num:'01',name:'칸(K)'},           {num:'02',name:'카오스(C)'},
+  {num:'03',name:'LOHAS(L)'},        {num:'04',name:'SPERO(S)'},
+  {num:'05',name:'LAND(D)'},         {num:'06',name:'TREE(T)'},
+  {num:'07',name:'FRUIT(F)'},        {num:'08',name:'BATIZAN(B) 사각'},
+  {num:'09',name:'BATIZAN(B) 라운드'},{num:'10',name:'BATIZAN(B) 삼각'},
+  {num:'11',name:'알파(α)'},         {num:'12',name:'베타(β)'},
+  {num:'13',name:'감마(γ)'},         {num:'14',name:'델타(δ)'},
+  {num:'15',name:'피아노(P)'},       {num:'16',name:'LA'},
+  {num:'17',name:'HY'},              {num:'18',name:'로제(R)'},
+  {num:'19',name:'LANXESS(X)'},      {num:'20',name:'ARIA(A)'},
+];
+const BRAND_ALPHA = {
+  '01':'K','02':'C','03':'L','04':'S','05':'D','06':'T','07':'F',
+  '08':'B','09':'B','10':'B','11':'α','12':'β','13':'γ','14':'δ',
+  '15':'P','16':'LA','17':'HY','18':'R','19':'X','20':'A',
+};
+
+// ════════════════════════════════════════════
+//  소분류 (BOM) 목록
+// ════════════════════════════════════════════
+let sub1List = [
+  {num:'01', name:'수전몸통',      grp:'본체/핸들류'}, {num:'02', name:'샤워바몸통',    grp:'본체/핸들류'},
+  {num:'03', name:'앵글밸브몸통',  grp:'본체/핸들류'}, {num:'04', name:'일반꼭지몸통',  grp:'본체/핸들류'},
+  {num:'05', name:'샹크',          grp:'본체/핸들류'}, {num:'06', name:'수전핸들',      grp:'본체/핸들류'},
+  {num:'07', name:'샤워바핸들',    grp:'본체/핸들류'}, {num:'08', name:'앵글밸브핸들',  grp:'본체/핸들류'},
+  {num:'09', name:'일반꼭지핸들',  grp:'본체/핸들류'},
+  {num:'10', name:'T볼트 대너트',  grp:'내부부품류'},  {num:'11', name:'카트리지',      grp:'내부부품류'},
+  {num:'12', name:'누르개',        grp:'내부부품류'},  {num:'13', name:'누르개 커버',   grp:'내부부품류'},
+  {num:'14', name:'전환밸브',      grp:'내부부품류'},  {num:'15', name:'토수구',        grp:'내부부품류'},
+  {num:'16', name:'편심',          grp:'내부부품류'},
+  {num:'20', name:'원홀고압호스',  grp:'연결/배관류'},  {num:'21', name:'자바라',        grp:'연결/배관류'},
+  {num:'22', name:'수구너트',      grp:'연결/배관류'},  {num:'23', name:'메탈호스',      grp:'연결/배관류'},
+  {num:'24', name:'연결너트',      grp:'연결/배관류'},  {num:'25', name:'데크줄',        grp:'연결/배관류'},
+  {num:'26', name:'파이프셋트',    grp:'연결/배관류'},  {num:'27', name:'럭너트',        grp:'연결/배관류'},
+  {num:'28', name:'헤드',          grp:'연결/배관류'},  {num:'29', name:'스프레이건',    grp:'연결/배관류'},
+  {num:'30', name:'행거',          grp:'구조/동봉부품류'},{num:'31', name:'지지대',      grp:'구조/동봉부품류'},
+  {num:'32', name:'꼭지대',        grp:'구조/동봉부품류'},{num:'33', name:'가이드',      grp:'구조/동봉부품류'},
+  {num:'34', name:'브라켓',        grp:'구조/동봉부품류'},{num:'35', name:'비스',        grp:'구조/동봉부품류'},
+  {num:'36', name:'왕',            grp:'구조/동봉부품류'},{num:'37', name:'원홀추',      grp:'구조/동봉부품류'},
+  {num:'38', name:'비누대 Set',    grp:'구조/동봉부품류'},{num:'39', name:'온도계',      grp:'구조/동봉부품류'},
+  {num:'40', name:'패드',          grp:'소모/밀봉류'},  {num:'41', name:'패킹',          grp:'소모/밀봉류'},
+  {num:'42', name:'오링패킹',      grp:'소모/밀봉류'},  {num:'43', name:'비닐',          grp:'소모/밀봉류'},
+  {num:'44', name:'와샤',          grp:'소모/밀봉류'},  {num:'45', name:'절수디스크',    grp:'소모/밀봉류'},
+  {num:'50', name:'인박스',        grp:'포장/문서류'},  {num:'51', name:'아웃박스',      grp:'포장/문서류'},
+  {num:'52', name:'품질보증서',    grp:'포장/문서류'},  {num:'53', name:'스티커',        grp:'포장/문서류'},
+  {num:'54', name:'밴딩',          grp:'포장/문서류'},
+  {num:'A01',name:'선반',          grp:'악세사리류'},
+  {num:'A02',name:'4품 액세서리',  grp:'악세사리류'},
+];
+
+// ════════════════════════════════════════════
+//  제조사 목록
+// ════════════════════════════════════════════
+let mfrList = [
+  {code:'001',name:'GM코리아',type:'제조사'},         {code:'002',name:'J.S 산업',type:'제조사'},
+  {code:'003',name:'S.H 메탈',type:'제조사'},         {code:'004',name:'S.M 코리아',type:'제조사'},
+  {code:'005',name:'거성종합상사',type:'제조사'},      {code:'006',name:'경민테크',type:'제조사'},
+  {code:'007',name:'광진공구',type:'제조사'},          {code:'008',name:'그린포장 주식회사',type:'제조사'},
+  {code:'009',name:'글로벌 에스티',type:'제조사'},     {code:'010',name:'네오팔코리아㈜',type:'제조사'},
+  {code:'011',name:'대건산업',type:'제조사'},          {code:'012',name:'대림후렉시블',type:'제조사'},
+  {code:'013',name:'대산메탈',type:'제조사'},          {code:'014',name:'대성금속',type:'제조사'},
+  {code:'015',name:'대영정밀',type:'제조사'},          {code:'016',name:'대호금속',type:'제조사'},
+  {code:'017',name:'대흘산업',type:'제조사'},          {code:'018',name:'디아 코리아',type:'제조사'},
+  {code:'019',name:'로얄워터콘',type:'제조사'},        {code:'020',name:'명복금속',type:'제조사'},
+  {code:'021',name:'미일화학',type:'제조사'},          {code:'022',name:'보영금속㈜',type:'제조사'},
+  {code:'023',name:'부일청공',type:'제조사'},          {code:'024',name:'삼성기업사',type:'제조사'},
+  {code:'025',name:'삼영센서기',type:'제조사'},        {code:'026',name:'삼올워터링',type:'제조사'},
+  {code:'027',name:'서울부속',type:'제조사'},          {code:'028',name:'서울인쇄',type:'제조사'},
+  {code:'029',name:'서진테크',type:'제조사'},          {code:'030',name:'석원㈜',type:'제조사'},
+  {code:'031',name:'선영고무공업㈜',type:'제조사'},    {code:'032',name:'성림코리아',type:'제조사'},
+  {code:'033',name:'성보정밀',type:'제조사'},          {code:'034',name:'성원바스',type:'제조사'},
+  {code:'035',name:'수성인더스트리',type:'제조사'},    {code:'036',name:'수이타이',type:'제조사'},
+  {code:'037',name:'신광테크',type:'제조사'},          {code:'038',name:'신성공업',type:'제조사'},
+  {code:'039',name:'신우베어링',type:'제조사'},        {code:'040',name:'신원금속',type:'제조사'},
+  {code:'041',name:'씨엠에스테크',type:'제조사'},      {code:'042',name:'아이바스',type:'제조사'},
+  {code:'043',name:'양경환',type:'제조사'},            {code:'044',name:'에스디',type:'제조사'},
+  {code:'045',name:'연세금속',type:'제조사'},          {code:'046',name:'영진테크',type:'제조사'},
+  {code:'047',name:'와토스코리아㈜',type:'제조사'},    {code:'048',name:'우동금속',type:'제조사'},
+  {code:'049',name:'윤성산업',type:'제조사'},          {code:'050',name:'워터세이빙',type:'제조사'},
+  {code:'051',name:'재광산업',type:'제조사'},          {code:'052',name:'조영방',type:'제조사'},
+  {code:'053',name:'㈜건우엘디이',type:'제조사'},      {code:'054',name:'㈜네토',type:'제조사'},
+  {code:'055',name:'㈜다로스',type:'제조사'},          {code:'056',name:'㈜다원산업',type:'제조사'},
+  {code:'057',name:'㈜대상에스앤티',type:'제조사'},    {code:'058',name:'㈜더쎈코리아',type:'제조사'},
+  {code:'059',name:'주설강',type:'제조사'},            {code:'060',name:'㈜성진밸브산업',type:'제조사'},
+  {code:'061',name:'㈜세진산업',type:'제조사'},        {code:'062',name:'㈜송무포장',type:'제조사'},
+  {code:'063',name:'주식회사 디아',type:'제조사'},     {code:'064',name:'주식회사 디에스카트리지',type:'제조사'},
+  {code:'065',name:'주식회사 엘케이스프링',type:'제조사'},{code:'066',name:'주식회사 지에스피앤피',type:'제조사'},
+  {code:'067',name:'주식회사 티엠씨',type:'제조사'},   {code:'068',name:'주식회사 혜성코리아',type:'제조사'},
+  {code:'069',name:'주신산업',type:'제조사'},          {code:'070',name:'㈜신한세라믹',type:'제조사'},
+  {code:'071',name:'㈜워터피아',type:'제조사'},        {code:'072',name:'㈜유창',type:'제조사'},
+  {code:'073',name:'㈜이엘엔터프라이즈',type:'제조사'},{code:'074',name:'주전산',type:'제조사'},
+  {code:'075',name:'㈜제이시엘인더스트리',type:'제조사'},{code:'076',name:'㈜진주글라스',type:'제조사'},
+  {code:'077',name:'㈜천일피앤씨',type:'제조사'},      {code:'078',name:'㈜티에스자바라',type:'제조사'},
+  {code:'079',name:'㈜해티',type:'제조사'},            {code:'080',name:'준테크',type:'제조사'},
+  {code:'081',name:'지엠코리아',type:'제조사'},        {code:'082',name:'진겸경',type:'제조사'},
+  {code:'083',name:'진영화학',type:'제조사'},          {code:'084',name:'진흥기업',type:'제조사'},
+  {code:'085',name:'청구금속',type:'제조사'},          {code:'086',name:'케이에프',type:'제조사'},
+  {code:'087',name:'태산금속(김용성)',type:'제조사'},   {code:'088',name:'태산금속(문현식)',type:'제조사'},
+  {code:'089',name:'티오피통상',type:'제조사'},        {code:'090',name:'하나금속',type:'제조사'},
+  {code:'091',name:'한국타일기',type:'제조사'},        {code:'092',name:'한라금속',type:'제조사'},
+  {code:'093',name:'한샘주조정밀',type:'제조사'},      {code:'094',name:'한솔 ENG',type:'제조사'},
+  {code:'095',name:'한일테크㈜',type:'제조사'},        {code:'096',name:'해성단조',type:'제조사'},
+  {code:'097',name:'로영',type:'제조사'},              {code:'098',name:'㈜리셋',type:'제조사'},
+  {code:'099',name:'성진밸브',type:'제조사'},          {code:'100',name:'에이치테크',type:'제조사'},
+  {code:'101',name:'풀바스',type:'제조사'},            {code:'102',name:'대산엔터프라이즈',type:'제조사'},
+  {code:'103',name:'대성테크',type:'제조사'},          {code:'104',name:'경방엔지니어링',type:'제조사'},
+  {code:'105',name:'바스텔러',type:'제조사'},          {code:'106',name:'티티아이',type:'제조사'},
+  {code:'107',name:'합전테크',type:'제조사'},          {code:'108',name:'인포메탈',type:'제조사'},
+  {code:'109',name:'유일볼트',type:'제조사'},          {code:'110',name:'코비아트',type:'제조사'},
+  {code:'111',name:'케이지플렉시블',type:'제조사'},    {code:'112',name:'세종통상',type:'제조사'},
+  {code:'113',name:'한림포장',type:'제조사'},          {code:'114',name:'트랜드',type:'제조사'},
+  {code:'115',name:'완캘코리아',type:'제조사'},        {code:'116',name:'다다피앤씨',type:'제조사'},
+  {code:'117',name:'에스엔알',type:'제조사'},          {code:'118',name:'태룡프라스틱',type:'제조사'},
+  {code:'119',name:'한양인쇄',type:'제조사'},          {code:'120',name:'코리아무역',type:'제조사'},
+  {code:'121',name:'이래수홀포장',type:'제조사'},      {code:'122',name:'월드코리아',type:'제조사'},
+  {code:'123',name:'기밴테크',type:'제조사'},          {code:'124',name:'대림포장',type:'제조사'},
+  {code:'125',name:'우리씨앤씨',type:'제조사'},        {code:'126',name:'트랜드',type:'제조사'},
+  {code:'127',name:'달티오',type:'제조사'},            {code:'128',name:'윤테크',type:'제조사'},
+  {code:'129',name:'태영프라스틱',type:'제조사'},      {code:'130',name:'신한P&S',type:'제조사'},
+  {code:'131',name:'아르떼',type:'제조사'},            {code:'132',name:'알리플',type:'제조사'},
+  {code:'133',name:'중국GHC',type:'제조사'},           {code:'134',name:'천카이',type:'제조사'},
+  {code:'135',name:'잉뚜',type:'제조사'},              {code:'136',name:'일광볼트',type:'제조사'},
+  {code:'137',name:'진치',type:'제조사'},              {code:'138',name:'좋은박스',type:'제조사'},
+  {code:'139',name:'이래포장',type:'제조사'},          {code:'140',name:'한국코바텍',type:'제조사'},
+  {code:'141',name:'cafe24',type:'제조사'},            {code:'142',name:'김호남',type:'제조사'},
+  {code:'143',name:'철물24',type:'제조사'},            {code:'144',name:'하. 주식회사 가영플렉시블',type:'제조사'},
+  {code:'145',name:'더블리싱 주식회사',type:'제조사'}, {code:'146',name:'(주)위스',type:'제조사'},
+  {code:'147',name:'아바스',type:'제조사'},            {code:'148',name:'한태산',type:'제조사'},
+  {code:'149',name:'이실',type:'제조사'},              {code:'150',name:'카일리쉬',type:'제조사'},
+  {code:'151',name:'태백금속',type:'제조사'},          {code:'152',name:'신일폴리머',type:'제조사'},
+  {code:'153',name:'현대박스',type:'제조사'},
+  {code:'A01',name:'아바스',type:'계열사'},   {code:'A02',name:'도형아이',type:'계열사'},
+  {code:'A03',name:'SM',type:'계열사'},       {code:'A04',name:'DOT',type:'계열사'},
+  {code:'A05',name:'이선',type:'계열사'},     {code:'A06',name:'클린기업',type:'계열사'},
+];
+
+// ════════════════════════════════════════════
+//  품목 데이터 (DB에서 로드)
+// ════════════════════════════════════════════
+let items = [];
+let editId=null, codeManual=false;
+
+// ════════════════════════════════════════════
+//  유틸 함수
+// ════════════════════════════════════════════
+const EL = id => document.getElementById(id);
+const V  = id => EL(id).value;
+const makeOpt = (val,txt) => { const o=document.createElement('option'); o.value=val; o.textContent=txt; return o; };
+const trow    = (k,v,w='18px') => `<tr><td style="font-family:monospace;color:#888;padding:2px 0;width:${w}">${k}</td><td>${v}</td></tr>`;
+const ci   = c => COLORS.find(x=>x.code===c)   || {code:c,name:c,hex:'#aaa'};
+const sn   = n => (sub1List.find(x=>x.num===n) || {name:n}).name;
+const mn   = c => (mfrList.find(x=>x.code===c) || {name:c}).name;
+const bn   = n => (BRANDS.find(x=>x.num===n)   || {name:n}).name;
+const un1  = (uc,sc) => (getUseList1(sc).find(x=>x.code===uc)||{name:uc}).name;
+const getIT = code => (code&&code.length>=4&&ITYPE[code[3]]) ? code[3] : '';
+
+function syncFilter(id, keys, labelFn){
+  const sel=EL(id), prev=sel.value, first=sel.options[0];
+  sel.innerHTML=''; sel.appendChild(first);
+  keys.forEach(k=>sel.appendChild(makeOpt(k,labelFn(k))));
+  sel.value=prev;
+}
+
+// ════════════════════════════════════════════
+//  로딩 / 초기화
+// ════════════════════════════════════════════
+function setLoading(v){ EL('loadingOverlay').style.display=v?'flex':'none'; }
+
+async function init(){
+  setLoading(true);
+  // 소분류 로드 (비어있으면 초기 데이터 시드)
+  const {data: s1} = await sb.from('sub1_list').select('*').order('num');
+  if(s1 && s1.length > 0){
+    sub1List = s1;
+  } else {
+    await sb.from('sub1_list').insert(sub1List);
+  }
+  // 제조사 로드 (비어있으면 초기 데이터 시드)
+  const {data: mf} = await sb.from('mfr_list').select('*').order('code');
+  if(mf && mf.length > 0){
+    mfrList = mf;
+  } else {
+    await sb.from('mfr_list').insert(mfrList);
+  }
+  // 품목 로드
+  const {data: it, error} = await sb.from('items').select('*').order('id', {ascending:false});
+  if(error){ alert('데이터 로드 실패: '+error.message); }
+  else { items = it.map(r=>({...r, use:r.use_code})); }
+  setLoading(false);
+  render();
+}
+
+// ════════════════════════════════════════════
+//  자동 품목명 / 규격명
+// ════════════════════════════════════════════
+function autoName(){
+  const mat=V('m_mat'), brand=V('m_brand'), use=V('m_use'), col=V('m_col'), sub1=V('m_sub1');
+  if(!mat||!brand||!use||!col) return '';
+  const uN=getUseList1(sub1).find(x=>x.code===use)?.name||'';
+  return `${MAT_ALPHA[mat]||''}${BRAND_ALPHA[brand]||''} ${uN} ${col}`;
+}
+function autoSpec(){
+  const sub1=V('m_sub1'), use=V('m_use'), mat=V('m_mat'), brand=V('m_brand');
+  const specNum=getUseList1(sub1).find(x=>x.code===use)?.spec||'';
+  if(!specNum) return '';
+  const mA=MAT_ALPHA[mat]||'';
+  const bA=BRAND_ALPHA[brand]||'';
+  return `${mA}${bA}-${specNum}`;
+}
+function resetAutoName(){
+  const el=EL('m_name'), tag=EL('nameAutoTag');
+  delete el.dataset.manual;
+  el.value=autoName()||'';
+  tag.textContent='자동생성'; tag.style.color='#185FA5';
+}
+function resetAutoSpec(){
+  const el=EL('m_spec'), tag=EL('specAutoTag');
+  delete el.dataset.manual;
+  el.value=autoSpec()||'';
+  tag.textContent='자동입력'; tag.style.color='#185FA5';
+}
+function refreshAutoFields(){
+  if(!EL('m_name').dataset.manual){ const a=autoName(); if(a) EL('m_name').value=a; }
+  if(!EL('m_spec').dataset.manual){ const s=autoSpec(); if(s) EL('m_spec').value=s; }
+}
+
+// ════════════════════════════════════════════
+//  코드 자동생성
+// ════════════════════════════════════════════
+function genCode(){
+  if(codeManual) return;
+  const d1=V('m_d1'), mat=V('m_mat'), sub1=V('m_sub1'), itype=V('m_itype');
+  const use=V('m_use'), brand=V('m_brand'), ser=V('m_ser')||'0';
+  const mfr=EL('m_mfr').value, col=V('m_col');
+  if(!d1||!mat||!sub1||!itype||!use||!brand||!mfr||!col){
+    EL('codePreview').textContent='—'; EL('codeParts').innerHTML=''; EL('m_code').value=''; return;
+  }
+  const major  = `${d1}${mat}${itype}${sub1.padStart(2,'0')}`;
+  const middle = `${use.padStart(2,'0')}${brand.padStart(2,'0')}${ser}`;
+  const code   = `${major}-${middle}-${mfr}-${col}`;
+  EL('codePreview').textContent=code;
+  EL('m_code').value=code;
+  checkDupCode();
+  const it=ITYPE[itype]||{label:'',bg:'#eee',cl:'#888'};
+  EL('codeParts').innerHTML=[
+    {v:`${d1}${mat}`,         l:'업종+재료'},
+    {v:itype,                 l:it.label, bg:it.bg, cl:it.cl},
+    {v:sub1.padStart(2,'0'),  l:'소분류'},
+    {v:use.padStart(2,'0'),   l:'소분류1'},
+    {v:brand.padStart(2,'0'), l:'소분류2'},
+    {v:ser,                   l:'소분류3'},
+    {v:mfr,                   l:'제조사'},
+    {v:col,                   l:'컬러'},
+  ].map((p,i,a)=>{
+    const r=i===0?'border-radius:4px 0 0 4px':i===a.length-1?'border-radius:0 4px 4px 0':'';
+    const bl=i>0?'border-left:none':'';
+    const bg=p.bg?`background:${p.bg};color:${p.cl}`:'';
+    return `<div class="part" style="${r};${bl};${bg}">${p.v}<span class="part-lbl">${p.l}</span></div>`;
+  }).join('');
+  refreshAutoFields();
+}
+
+// ════════════════════════════════════════════
+//  중복 코드 체크
+// ════════════════════════════════════════════
+function checkDupCode(){
+  const code=EL('m_code').value.trim();
+  const msg=EL('codeDupMsg'), inp=EL('m_code');
+  const dup=code&&items.find(i=>i.code===code&&i.id!==editId);
+  if(dup){
+    msg.style.display='block';
+    msg.textContent=`⚠️ 이미 등록된 코드 — ${dup.name}`;
+    inp.style.borderColor='#A32D2D'; inp.style.background='#fff8f8';
+  } else {
+    msg.style.display='none'; inp.style.borderColor=''; inp.style.background='';
+  }
+}
+
+// ════════════════════════════════════════════
+//  드롭다운 초기화
+// ════════════════════════════════════════════
+function populateSub1Sel(){
+  const sel=EL('m_sub1'); sel.innerHTML='<option value="">선택</option>';
+  GRPS.forEach(grp=>{
+    const og=document.createElement('optgroup'); og.label=grp;
+    sub1List.filter(s=>s.grp===grp).forEach(s=>og.appendChild(makeOpt(s.num,s.num+' — '+s.name)));
+    sel.appendChild(og);
+  });
+}
+function populateUseSel(){
+  const sub1=V('m_sub1'), list=getUseList1(sub1);
+  const sel=EL('m_use'); sel.innerHTML='<option value="">선택</option>';
+  if(USE_MAP1[sub1]&&sub1!=='01'){
+    list.forEach(u=>sel.appendChild(makeOpt(u.code,u.code+' — '+u.name)));
+  } else {
+    [
+      {label:'투홀세면',      codes:['01','02','03','04','05','06','07','08']},
+      {label:'원홀세면',      codes:['09','10','11','12','13','14','15','16']},
+      {label:'원홀주방/기타', codes:['17','18','19','20','21','22','23','24']},
+      {label:'주방',          codes:['25','26','27','28']},
+      {label:'샤워기/기타',   codes:['29','30','31','32','33','34','35','36','37']},
+    ].forEach(g=>{
+      const og=document.createElement('optgroup'); og.label=g.label;
+      g.codes.forEach(c=>{ const u=list.find(x=>x.code===c); if(u) og.appendChild(makeOpt(u.code,u.code+' — '+u.name)); });
+      sel.appendChild(og);
+    });
+  }
+}
+function populateBrandSel(){
+  const sub1=V('m_sub1'), use=V('m_use');
+  const custom=getUseList2(sub1,use);
+  const sel=EL('m_brand'); sel.innerHTML='<option value="">선택</option>';
+  if(custom){ custom.forEach(b=>sel.appendChild(makeOpt(b.code,b.code+' — '+b.name))); }
+  else      { BRANDS.forEach(b=>sel.appendChild(makeOpt(b.num,b.num+' — '+b.name))); }
+}
+function populateSerSel(){
+  const sub1=V('m_sub1');
+  const custom=getUseList3(sub1);
+  const sel=EL('m_ser'); sel.innerHTML='';
+  if(custom){ custom.forEach(s=>sel.appendChild(makeOpt(s.code,s.code+' — '+s.name))); }
+  else      { ['0','1','2','3','4','5','6','7','8','9'].forEach(n=>sel.appendChild(makeOpt(n,n))); }
+  EL('serLabel').textContent=SER_LABEL[sub1]||'소분류3 (1자리)';
+}
+function populateColorSel(){
+  const sel=EL('m_col'); sel.innerHTML='<option value="">선택</option>';
+  COLORS.forEach(c=>sel.appendChild(makeOpt(c.code,c.code+' — '+c.name)));
+}
+function populateGrpSel(){
+  const sel=EL('newSub1Grp'); sel.innerHTML='';
+  GRPS.forEach(g=>sel.appendChild(makeOpt(g,g)));
+}
+function onSub1Change(){
+  populateUseSel(); populateBrandSel(); populateSerSel();
+  EL('m_use').value=''; EL('m_brand').value=''; EL('m_ser').value='0';
+  genCode();
+}
+function onUseChange(){
+  populateBrandSel(); EL('m_brand').value='';
+  refreshAutoFields(); genCode();
+}
+function onBrandChange(){
+  refreshAutoFields(); genCode();
+}
+
+// ════════════════════════════════════════════
+//  제조사 검색 드롭다운
+// ════════════════════════════════════════════
+function filterMfrList(){
+  const q=EL('m_mfr_search').value.toLowerCase();
+  const dd=EL('mfrDropdown');
+  const filtered=mfrList.filter(m=>m.name.toLowerCase().includes(q)||m.code.toLowerCase().includes(q));
+  if(!filtered.length){ dd.style.display='none'; return; }
+  dd.style.display='block';
+  dd.innerHTML=filtered.map(m=>`
+    <div onclick="selectMfr('${m.code}','${m.name}')"
+      style="padding:7px 10px;cursor:pointer;font-size:12px;display:flex;gap:8px;align-items:center;border-bottom:0.5px solid #f0eeea"
+      onmouseover="this.style.background='#f5f5f3'" onmouseout="this.style.background=''">
+      <span style="font-family:monospace;color:#888;min-width:36px">${m.code}</span>
+      <span>${m.name}</span>
+      <span style="margin-left:auto;font-size:10px;padding:1px 6px;border-radius:999px;background:${m.type==='계열사'?'#E6F1FB':'#EAF3DE'};color:${m.type==='계열사'?'#185FA5':'#3B6D11'}">${m.type}</span>
+    </div>`).join('');
+}
+function selectMfr(code,name){
+  EL('m_mfr').value=code;
+  EL('m_mfr_search').value=code+' — '+name;
+  EL('mfrDropdown').style.display='none';
+  genCode();
+}
+function resetMfrSearch(){
+  EL('m_mfr').value='';
+  EL('m_mfr_search').value='';
+  EL('mfrDropdown').style.display='none';
+}
+document.addEventListener('click',e=>{
+  if(!e.target.closest('#m_mfr_search')&&!e.target.closest('#mfrDropdown'))
+    EL('mfrDropdown').style.display='none';
+});
+
+// ════════════════════════════════════════════
+//  탭 전환
+// ════════════════════════════════════════════
+function setTab(name,el){
+  ['list','code','mgr'].forEach(t=>EL('tab-'+t).style.display='none');
+  document.querySelectorAll('.tab').forEach(b=>b.classList.remove('active'));
+  EL('tab-'+name).style.display='block'; el.classList.add('active');
+  if(name==='code') renderGuides();
+  if(name==='mgr')  { renderSub1Mgr(); renderMfrMgr(); populateGrpSel(); }
+}
+
+// ════════════════════════════════════════════
+//  코드 체계 안내
+// ════════════════════════════════════════════
+function renderGuides(){
+  EL('d1Guide').innerHTML  = Object.entries(D1).map(([k,v])=>trow(k,v)).join('');
+  EL('matGuide').innerHTML = Object.entries(MAT).map(([k,v])=>trow(k,v,'28px')).join('');
+  EL('colorGuide').innerHTML = COLORS.map(c=>`<tr>
+    <td style="font-family:monospace;color:#888;padding:2px 0;width:30px">${c.code}</td>
+    <td><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:${c.hex};border:1px solid #e8e6e0;margin-right:5px;vertical-align:middle"></span>${c.name}</td>
+  </tr>`).join('');
+  const grps=[...new Set(sub1List.map(s=>s.grp))];
+  EL('sub1Guide').innerHTML=grps.map(grp=>{
+    const its=sub1List.filter(s=>s.grp===grp).map(s=>
+      `<span style="display:inline-block;padding:1px 6px;border:1px solid #e8e6e0;border-radius:3px;margin:2px;font-size:11px"><span style="font-family:monospace;color:#888">${s.num}</span> ${s.name}</span>`
+    ).join('');
+    return `<div style="margin-bottom:6px"><div style="font-size:10px;font-weight:500;color:#888;margin-bottom:3px">${grp}</div>${its}</div>`;
+  }).join('');
+}
+
+// ════════════════════════════════════════════
+//  분류/제조사 관리
+// ════════════════════════════════════════════
+function renderSub1Mgr(){
+  const grps=[...new Set(sub1List.map(s=>s.grp))];
+  EL('sub1Tbody').innerHTML=grps.map(grp=>{
+    const rows=sub1List.filter(s=>s.grp===grp).map(s=>`<tr>
+      <td><span class="cpill">${s.num}</span></td>
+      <td><input value="${s.name}" style="width:100%;padding:4px 7px;border:1px solid #d0cfc8;border-radius:6px;font-size:12px"
+        onchange="updateSub1Name('${s.num}',this.value)"></td>
+      <td style="font-size:11px;color:#888">${s.grp}</td>
+      <td><button class="btn sm danger" onclick="delSub1('${s.num}')">삭제</button></td>
+    </tr>`).join('');
+    return `<tr><td colspan="4" style="padding:6px 10px 2px;font-size:11px;font-weight:500;color:#888;background:#f5f5f3">${grp}</td></tr>${rows}`;
+  }).join('');
+}
+async function updateSub1Name(num,v){
+  const s=sub1List.find(x=>x.num===num); if(!s) return;
+  s.name=v.trim();
+  await sb.from('sub1_list').update({name:s.name}).eq('num',num);
+}
+async function addSub1(){
+  const num=EL('newSub1Num').value.trim();
+  const name=EL('newSub1Name').value.trim();
+  const grp=EL('newSub1Grp').value;
+  if(!num||!name){alert('번호와 명칭을 입력하세요');return;}
+  if(sub1List.find(s=>s.num===num)){alert('이미 존재하는 번호입니다');return;}
+  const {error}=await sb.from('sub1_list').insert({num,name,grp});
+  if(error){alert('추가 실패: '+error.message);return;}
+  sub1List.push({num,name,grp});
+  EL('newSub1Num').value=''; EL('newSub1Name').value='';
+  renderSub1Mgr();
+}
+async function delSub1(num){
+  if(!confirm('삭제?'))return;
+  const {error}=await sb.from('sub1_list').delete().eq('num',num);
+  if(error){alert('삭제 실패: '+error.message);return;}
+  sub1List=sub1List.filter(s=>s.num!==num); renderSub1Mgr();
+}
+
+function renderMfrMgr(){
+  EL('mfrTbody').innerHTML=['제조사','계열사'].map(type=>{
+    const rows=mfrList.filter(m=>m.type===type).map(m=>`<tr>
+      <td><span class="cpill">${m.code}</span></td>
+      <td><input value="${m.name}" style="width:100%;padding:4px 7px;border:1px solid #d0cfc8;border-radius:6px;font-size:12px"
+        onchange="updateMfrName('${m.code}',this.value)"></td>
+      <td><span style="font-size:11px;padding:1px 6px;border-radius:999px;background:${type==='계열사'?'#E6F1FB':'#EAF3DE'};color:${type==='계열사'?'#185FA5':'#3B6D11'}">${type}</span></td>
+      <td><button class="btn sm danger" onclick="delMfr('${m.code}')">삭제</button></td>
+    </tr>`).join('');
+    return `<tr><td colspan="4" style="padding:6px 10px 2px;font-size:11px;font-weight:500;color:#888;background:#f5f5f3">${type}</td></tr>${rows}`;
+  }).join('');
+}
+async function updateMfrName(code,v){
+  const m=mfrList.find(x=>x.code===code); if(!m) return;
+  m.name=v.trim();
+  await sb.from('mfr_list').update({name:m.name}).eq('code',code);
+}
+async function addMfr(){
+  const code=EL('newMfrCode').value.trim().toUpperCase();
+  const name=EL('newMfrName').value.trim();
+  const type=EL('newMfrType').value;
+  if(!code||!name){alert('코드와 명칭을 입력하세요');return;}
+  if(mfrList.find(m=>m.code===code)){alert('이미 존재하는 코드입니다');return;}
+  const {error}=await sb.from('mfr_list').insert({code,name,type});
+  if(error){alert('추가 실패: '+error.message);return;}
+  mfrList.push({code,name,type});
+  EL('newMfrCode').value=''; EL('newMfrName').value='';
+  renderMfrMgr();
+}
+async function delMfr(code){
+  if(!confirm('삭제?'))return;
+  const {error}=await sb.from('mfr_list').delete().eq('code',code);
+  if(error){alert('삭제 실패: '+error.message);return;}
+  mfrList=mfrList.filter(m=>m.code!==code); renderMfrMgr();
+}
+
+// ════════════════════════════════════════════
+//  모달 열기/닫기
+// ════════════════════════════════════════════
+function openAdd(){
+  editId=null; codeManual=false;
+  EL('mTitle').textContent='품목 등록';
+  populateSub1Sel(); populateUseSel(); populateBrandSel(); populateSerSel(); populateColorSel();
+  resetMfrSearch();
+  ['cost','price','stock','supplier','memo'].forEach(f=>EL('m_'+f).value='');
+  ['d1','mat','itype','sub1','use','brand','col'].forEach(f=>EL('m_'+f).value='');
+  EL('m_ser').value='0'; EL('m_code').value='';
+  const ne=EL('m_name'); ne.value=''; delete ne.dataset.manual;
+  const se=EL('m_spec'); se.value=''; delete se.dataset.manual;
+  EL('nameAutoTag').textContent='자동생성'; EL('nameAutoTag').style.color='#185FA5';
+  EL('specAutoTag').textContent='자동입력'; EL('specAutoTag').style.color='#185FA5';
+  EL('codePreview').textContent='—'; EL('codeParts').innerHTML='';
+  EL('codeDupMsg').style.display='none';
+  EL('modal').style.display='block';
+}
+function openEdit(id){
+  editId=id; codeManual=false;
+  const i=items.find(x=>x.id===id);
+  EL('mTitle').textContent='품목 수정';
+  populateSub1Sel(); populateColorSel();
+  EL('m_sub1').value=i.sub1||'';
+  populateUseSel(); populateSerSel();
+  EL('m_use').value=i.use||'';
+  populateBrandSel();
+  EL('m_d1').value=i.d1||'';       EL('m_mat').value=i.mat||'';
+  EL('m_itype').value=i.itype||''; EL('m_brand').value=i.brand||'';
+  EL('m_ser').value=i.ser||'0';    EL('m_col').value=i.color||'';
+  EL('m_cost').value=i.cost||'';   EL('m_price').value=i.price||'';
+  EL('m_stock').value=i.stock||''; EL('m_supplier').value=i.supplier||'';
+  EL('m_memo').value=i.memo||'';   EL('m_code').value=i.code||'';
+  // 제조사 검색창 복원
+  const mfrItem=mfrList.find(m=>m.code===i.mfr);
+  EL('m_mfr').value=i.mfr||'';
+  EL('m_mfr_search').value=mfrItem?i.mfr+' — '+mfrItem.name:i.mfr||'';
+  EL('mfrDropdown').style.display='none';
+  EL('codePreview').textContent=i.code||'—'; EL('codeParts').innerHTML='';
+  const ne=EL('m_name'); ne.value=i.name||''; ne.dataset.manual='1';
+  const se=EL('m_spec'); se.value=i.spec||''; se.dataset.manual='1';
+  EL('nameAutoTag').textContent='수동입력'; EL('nameAutoTag').style.color='#854F0B';
+  EL('specAutoTag').textContent='수동입력'; EL('specAutoTag').style.color='#854F0B';
+  EL('codeDupMsg').style.display='none';
+  EL('modal').style.display='block';
+}
+function closeModal(){ EL('modal').style.display='none'; }
+
+// ════════════════════════════════════════════
+//  저장 / 삭제
+// ════════════════════════════════════════════
+async function saveItem(){
+  const name=EL('m_name').value.trim();
+  const d1=V('m_d1'), mat=V('m_mat'), itype=V('m_itype'), sub1=V('m_sub1');
+  const use=V('m_use'), brand=V('m_brand'), mfr=EL('m_mfr').value, col=V('m_col');
+  if(!name)  {alert('품목명을 입력하세요');return;}
+  if(!d1)    {alert('업종을 선택하세요');return;}
+  if(!mat)   {alert('재료를 선택하세요');return;}
+  if(!itype) {alert('품목유형을 선택하세요');return;}
+  if(!sub1)  {alert('소분류를 선택하세요');return;}
+  if(!use)   {alert('소분류1을 선택하세요');return;}
+  if(!brand) {alert('소분류2를 선택하세요');return;}
+  if(!mfr)   {alert('제조사/계열사를 선택하세요');return;}
+  if(!col)   {alert('컬러를 선택하세요');return;}
+  const code=EL('m_code').value.trim()||EL('codePreview').textContent;
+  if(!code||code==='—'){alert('코드가 생성되지 않았습니다. 필수 항목을 확인하세요.');return;}
+  const dup=items.find(i=>i.code===code&&i.id!==editId);
+  if(dup){alert(`⚠️ 이미 등록된 품목코드입니다.\n\n코드: ${code}\n품목명: ${dup.name}`);return;}
+  const dbData={
+    name, spec:EL('m_spec').value.trim(),
+    d1, mat, itype, sub1, use_code:use, brand,
+    ser:V('m_ser')||'0', mfr, color:col, code,
+    cost:  Number(EL('m_cost').value)||0,
+    price: Number(EL('m_price').value)||0,
+    stock: Number(EL('m_stock').value)||0,
+    supplier: EL('m_supplier').value.trim(),
+    memo:     EL('m_memo').value.trim(),
+  };
+  setLoading(true);
+  if(editId){
+    const {error}=await sb.from('items').update(dbData).eq('id',editId);
+    if(error){setLoading(false);alert('저장 실패: '+error.message);return;}
+    const idx=items.findIndex(i=>i.id===editId);
+    if(idx!==-1) items[idx]={...items[idx],...dbData, use};
+  } else {
+    const {data:newRow,error}=await sb.from('items').insert(dbData).select().single();
+    if(error){setLoading(false);alert('저장 실패: '+error.message);return;}
+    items.unshift({...newRow, use});
+  }
+  setLoading(false);
+  closeModal(); render();
+}
+async function delItem(id){
+  if(!confirm('삭제하시겠습니까?'))return;
+  const {error}=await sb.from('items').delete().eq('id',id);
+  if(error){alert('삭제 실패: '+error.message);return;}
+  items=items.filter(i=>i.id!==id); render();
+}
+
+// ════════════════════════════════════════════
+//  목록 렌더
+// ════════════════════════════════════════════
+function render(){
+  const q  =EL('searchInput').value.toLowerCase();
+  const fit=V('f_itype'), fd1=V('f_d1'), fs1=V('f_sub1'), fmfr=V('f_mfr'), fcol=V('f_col');
+  syncFilter('f_d1',  [...new Set(items.map(i=>i.d1).filter(Boolean))],   k=>k+' — '+(D1[k]||k));
+  syncFilter('f_sub1',[...new Set(items.map(i=>i.sub1).filter(Boolean))], k=>k+' '+sn(k));
+  syncFilter('f_mfr', [...new Set(items.map(i=>i.mfr).filter(Boolean))],  k=>k+' '+mn(k));
+  syncFilter('f_col', [...new Set(items.map(i=>i.color).filter(Boolean))],k=>k+' — '+ci(k).name);
+  const filtered=items.filter(i=>{
+    const mq=!q||(i.name||'').toLowerCase().includes(q)||(i.code||'').toLowerCase().includes(q)||(i.spec||'').toLowerCase().includes(q);
+    const it=getIT(i.code);
+    return mq&&(!fit||it===fit)&&(!fd1||i.d1===fd1)&&(!fs1||i.sub1===fs1)&&(!fmfr||i.mfr===fmfr)&&(!fcol||i.color===fcol);
+  });
+  const tbody=EL('tbody');
+  if(!filtered.length){tbody.innerHTML=`<tr><td colspan="12" class="empty">등록된 품목이 없습니다</td></tr>`;updateStats();return;}
+  tbody.innerHTML=filtered.map(i=>{
+    const col=ci(i.color), it=getIT(i.code), itc=ITYPE[it]||{label:'',bg:'#eee',cl:'#888'};
+    const stk=i.stock||0;
+    const stkB=stk<=0?`<span class="badge b-zero">품절</span>`:stk<=5?`<span class="badge b-low">${stk}</span>`:`<span class="badge b-ok">${stk}</span>`;
+    const itBadge=it?`<span style="display:inline-block;padding:1px 7px;border-radius:999px;font-size:10px;font-weight:500;background:${itc.bg};color:${itc.cl}">${it}</span>`:'';
+    const colDot=`<span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:${col.hex};border:1px solid #e8e6e0;margin-right:3px;vertical-align:middle"></span>`;
+    return `<tr>
+      <td><span class="cpill">${i.code}</span></td>
+      <td style="font-weight:500">${i.name}</td>
+      <td style="font-size:11px;color:#888">${i.spec||'-'}</td>
+      <td style="text-align:center">${itBadge}</td>
+      <td><span class="cbadge">${D1[i.d1]||i.d1}</span></td>
+      <td style="font-size:11px">${sn(i.sub1)}</td>
+      <td style="font-size:11px">${mn(i.mfr)}</td>
+      <td>${colDot}<span style="font-size:11px">${col.name}</span></td>
+      <td>${i.cost?Number(i.cost).toLocaleString('ko-KR')+'원':'-'}</td>
+      <td>${i.price?Number(i.price).toLocaleString('ko-KR')+'원':'-'}</td>
+      <td>${stkB}</td>
+      <td>
+        <button class="btn sm" onclick="openEdit(${i.id})">수정</button>
+        <button class="btn sm danger" onclick="delItem(${i.id})" style="margin-left:2px">삭제</button>
+      </td>
+    </tr>`;
+  }).join('');
+  updateStats();
+}
+function updateStats(){
+  const t=items.length, out=items.filter(i=>(i.stock||0)===0).length;
+  const r=items.filter(i=>getIT(i.code)==='R').length;
+  const p=items.filter(i=>getIT(i.code)==='P').length;
+  const g=items.filter(i=>getIT(i.code)==='G').length;
+  EL('stats').innerHTML=`
+    <div class="stat"><div class="lbl">전체 품목</div><div class="val">${t}</div></div>
+    <div class="stat"><div class="lbl"><span style="color:#3B6D11">R</span> 원재료 / <span style="color:#185FA5">P</span> 상품 / <span style="color:#854F0B">G</span> 제품</div><div class="val" style="font-size:15px">${r} / ${p} / ${g}</div></div>
+    <div class="stat"><div class="lbl">품절</div><div class="val" style="color:#A32D2D">${out}</div></div>
+    <div class="stat"><div class="lbl">등록 제조사</div><div class="val">${[...new Set(items.map(i=>i.mfr).filter(Boolean))].length}</div></div>`;
+}
+
+// ════════════════════════════════════════════
+//  CSV 내보내기
+// ════════════════════════════════════════════
+function exportCSV(){
+  const hdr=['품목코드','품목명','규격명','유형','대분류','재료','소분류(BOM)','소분류1','소분류2','소분류3','제조사','컬러','원가','판매가','재고','구매처','비고'];
+  const rows=items.map(i=>{
+    const it=getIT(i.code);
+    return[
+      i.code, i.name, i.spec||'',
+      it?(ITYPE[it]||{label:it}).label:'',
+      D1[i.d1]||i.d1, MAT[i.mat]||i.mat,
+      sn(i.sub1), un1(i.use,i.sub1), bn(i.brand), i.ser,
+      mn(i.mfr), i.color,
+      i.cost, i.price, i.stock, i.supplier, i.memo,
+    ].map(v=>`"${(v||'').toString().replace(/"/g,'""')}"`);
+  });
+  const csv='\uFEFF'+[hdr,...rows].map(r=>r.join(',')).join('\n');
+  const a=document.createElement('a');
+  a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);
+  a.download='수전품목_'+new Date().toISOString().slice(0,10)+'.csv';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+}
+
+init();
+</script>
+</body>
+</html>
