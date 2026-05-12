@@ -205,7 +205,7 @@ tr:hover td{background:#fafaf8}
       <div class="fgrid">
         <div class="sdiv">대분류</div>
         <div class="fg"><label>업종 *</label>
-          <select id="m_d1" onchange="genCode()">
+          <select id="m_d1" onchange="onD1Change()">
             <option value="">선택</option>
             <option value="1">1 — 수전</option>
             <option value="2">2 — 세면/양변기부속</option>
@@ -529,6 +529,13 @@ let sub1List = [
   {num:'54', name:'밴딩',          grp:'포장/문서류'},
   {num:'A01',name:'선반',          grp:'악세사리류'},
   {num:'A02',name:'4품 액세서리',  grp:'악세사리류'},
+  {num:'A03',name:'드라이어',      grp:'악세사리류'},
+  {num:'A04',name:'유아',          grp:'악세사리류'},
+  {num:'A05',name:'거울',          grp:'악세사리류'},
+  {num:'A06',name:'MK',            grp:'악세사리류'},
+  {num:'A07',name:'JA',            grp:'악세사리류'},
+  {num:'A08',name:'DS',            grp:'악세사리류'},
+  {num:'A09',name:'HTM',           grp:'악세사리류'},
 ];
 
 // ════════════════════════════════════════════
@@ -764,11 +771,16 @@ function checkDupCode(){
 // ════════════════════════════════════════════
 function populateSub1Sel(){
   const sel=EL('m_sub1'); sel.innerHTML='<option value="">선택</option>';
-  GRPS.forEach(grp=>{
-    const og=document.createElement('optgroup'); og.label=grp;
-    sub1List.filter(s=>s.grp===grp).forEach(s=>og.appendChild(makeOpt(s.num,s.num+' — '+s.name)));
-    sel.appendChild(og);
-  });
+  const d1=V('m_d1');
+  if(d1==='3'){
+    sub1List.filter(s=>s.grp==='악세사리류').forEach(s=>sel.appendChild(makeOpt(s.num,s.num+' — '+s.name)));
+  } else {
+    GRPS.filter(g=>g!=='악세사리류').forEach(grp=>{
+      const og=document.createElement('optgroup'); og.label=grp;
+      sub1List.filter(s=>s.grp===grp).forEach(s=>og.appendChild(makeOpt(s.num,s.num+' — '+s.name)));
+      sel.appendChild(og);
+    });
+  }
 }
 function populateUseSel(){
   const sub1=V('m_sub1'), list=getUseList1(sub1);
@@ -811,6 +823,11 @@ function populateColorSel(){
 function populateGrpSel(){
   const sel=EL('newSub1Grp'); sel.innerHTML='';
   GRPS.forEach(g=>sel.appendChild(makeOpt(g,g)));
+}
+function onD1Change(){
+  EL('m_sub1').value=''; EL('m_use').value=''; EL('m_brand').value='';
+  populateSub1Sel(); populateUseSel(); populateBrandSel(); populateSerSel();
+  genCode();
 }
 function onSub1Change(){
   populateUseSel(); populateBrandSel(); populateSerSel();
