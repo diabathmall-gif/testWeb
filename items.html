@@ -692,17 +692,18 @@ async function init(){
 // ════════════════════════════════════════════
 function autoName(){
   const mat=V('m_mat'), brand=V('m_brand'), use=V('m_use'), col=V('m_col'), sub1=V('m_sub1'), d1=V('m_d1');
-  if(!mat||!brand||!use||!col) return '';
+  if(!mat||!brand||!use) return '';
   const uN=getUseList1(sub1,d1).find(x=>x.code===use)?.name||'';
-  return `${MAT_ALPHA[mat]||''}${BRAND_ALPHA[brand]||''} ${uN} ${col}`;
+  return `${MAT_ALPHA[mat]||''}${BRAND_ALPHA[brand]||''} ${uN}${col?' '+col:''}`;
 }
 function autoSpec(){
   const sub1=V('m_sub1'), use=V('m_use'), mat=V('m_mat'), brand=V('m_brand'), d1=V('m_d1');
-  const specNum=getUseList1(sub1,d1).find(x=>x.code===use)?.spec||'';
-  if(!specNum) return '';
-  const mA=MAT_ALPHA[mat]||'';
-  const bA=BRAND_ALPHA[brand]||'';
-  return `${mA}${bA}-${specNum}`;
+  const useItem=getUseList1(sub1,d1).find(x=>x.code===use);
+  const specNum=useItem?.spec||'';
+  if(specNum){
+    return `${MAT_ALPHA[mat]||''}${BRAND_ALPHA[brand]||''}-${specNum}`;
+  }
+  return useItem?.name||'';
 }
 function resetAutoName(){
   const el=EL('m_name'), tag=EL('nameAutoTag');
