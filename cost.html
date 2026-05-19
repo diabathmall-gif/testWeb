@@ -1,4 +1,4 @@
-<!-- 원가 구성 입력 및 마진/판매가 계산기 (카테고리별 탭) -->
+<!-- 메뉴별 재료 레시피 기반 원가/마진 계산기 -->
 <!DOCTYPE html>
 <html lang="ko">
 <head>
@@ -8,9 +8,9 @@
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f5f5f3;color:#1a1a1a;font-size:14px}
-.wrap{max-width:960px;margin:0 auto;padding:1.5rem 1rem}
+.wrap{max-width:1100px;margin:0 auto;padding:1.5rem 1rem}
 h1{font-size:18px;font-weight:500;margin-bottom:1.25rem}
-.btn{height:36px;padding:0 14px;border:1px solid #d0cfc8;border-radius:8px;background:#fff;font-size:13px;cursor:pointer;white-space:nowrap}
+.btn{height:34px;padding:0 14px;border:1px solid #d0cfc8;border-radius:8px;background:#fff;font-size:13px;cursor:pointer;white-space:nowrap;font-family:inherit}
 .btn:hover{background:#f0eeea}
 .btn.primary{background:#185FA5;color:#fff;border-color:#185FA5}
 .btn.primary:hover{background:#0C447C}
@@ -20,220 +20,309 @@ h1{font-size:18px;font-weight:500;margin-bottom:1.25rem}
 .tab-bar{display:flex;gap:4px;margin-bottom:1rem;border-bottom:1px solid #e8e6e0}
 .tab{padding:7px 16px;font-size:13px;cursor:pointer;border-bottom:2px solid transparent;color:#888;background:none;border-top:none;border-left:none;border-right:none;font-family:inherit}
 .tab.active{color:#185FA5;border-bottom-color:#185FA5;font-weight:500}
-.card{background:#fff;border-radius:12px;border:1px solid #e8e6e0;padding:1.25rem;margin-bottom:1rem}
-.card-title{font-size:13px;font-weight:500;color:#888;margin-bottom:.9rem}
-.tbl-wrap{overflow-x:auto;border:1px solid #e8e6e0;border-radius:10px;background:#fff;margin-bottom:.75rem}
-table{width:100%;border-collapse:collapse;font-size:13px}
-th{padding:8px 10px;text-align:left;font-weight:500;font-size:11px;color:#888;border-bottom:1px solid #e8e6e0;white-space:nowrap;background:#fafaf8}
-td{padding:6px 8px;border-bottom:1px solid #f0eeea;vertical-align:middle}
+/* 메뉴 항목 */
+.menu-item{border:1px solid #e8e6e0;border-radius:12px;background:#fff;margin-bottom:.75rem;overflow:hidden}
+.menu-header{display:flex;align-items:center;gap:10px;padding:.75rem 1rem;cursor:pointer;user-select:none}
+.menu-header:hover{background:#fafaf8}
+.menu-name-input{border:none;outline:none;font-size:14px;font-weight:500;font-family:inherit;background:transparent;flex:1;min-width:80px}
+.menu-name-input::placeholder{color:#ccc}
+.header-info{display:flex;gap:12px;align-items:center;margin-left:auto;flex-shrink:0}
+.hi-label{font-size:11px;color:#aaa}
+.hi-val{font-size:13px;font-weight:600;color:#185FA5}
+.hi-val.gray{color:#888}
+.toggle-btn{font-size:12px;color:#aaa;padding:2px 6px;border:none;background:none;cursor:pointer}
+/* 레시피 영역 */
+.recipe-body{border-top:1px solid #e8e6e0;padding:1rem}
+.tbl-wrap{overflow-x:auto;border:1px solid #e8e6e0;border-radius:10px;margin-bottom:.75rem}
+table{width:100%;border-collapse:collapse;font-size:12px}
+th{padding:7px 8px;text-align:left;font-weight:500;font-size:11px;color:#888;border-bottom:1px solid #e8e6e0;background:#fafaf8;white-space:nowrap}
+th.r{text-align:right}
+td{padding:5px 6px;border-bottom:1px solid #f0eeea;vertical-align:middle}
 tr:last-child td{border-bottom:none}
-tfoot td{border-top:2px solid #e8e6e0;border-bottom:none;font-weight:600;background:#fafaf8;padding:9px 10px}
-.cell-input{width:100%;border:1px solid transparent;border-radius:6px;padding:4px 6px;font-size:13px;font-family:inherit;background:transparent}
-.cell-input:hover{border-color:#d0cfc8;background:#fff}
-.cell-input:focus{outline:none;border-color:#185FA5;background:#fff}
-.result-grid{display:grid;grid-template-columns:1fr 1fr;gap:1rem}
-.result-block{border:1px solid #e8e6e0;border-radius:10px;padding:1rem}
-.result-block h4{font-size:12px;font-weight:500;color:#888;margin-bottom:.75rem}
-.r-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:.6rem}
-.r-row:last-child{margin-bottom:0}
-.r-label{font-size:12px;color:#888}
-.r-value{font-size:18px;font-weight:600;color:#1a1a1a}
-.r-value.primary{color:#185FA5}
-.r-value.green{color:#3B6D11}
-.r-input-row{display:flex;align-items:center;gap:8px;margin-bottom:.6rem}
-.r-input-row label{font-size:12px;color:#888;white-space:nowrap}
-.r-input-row input{flex:1;height:34px;padding:0 10px;border:1px solid #d0cfc8;border-radius:8px;font-size:14px;font-family:inherit;text-align:right}
-.r-input-row input:focus{outline:none;border-color:#185FA5}
-.r-input-row span{font-size:13px;color:#888}
-.divider{height:1px;background:#e8e6e0;margin:.75rem 0}
-@media(max-width:600px){.result-grid{grid-template-columns:1fr}.tab{padding:7px 10px;font-size:12px}}
+tfoot td{border-top:2px solid #e8e6e0;border-bottom:none;font-weight:600;background:#fafaf8;padding:8px}
+.ci{width:100%;border:1px solid transparent;border-radius:5px;padding:3px 6px;font-size:12px;font-family:inherit;background:transparent}
+.ci:hover{border-color:#d0cfc8;background:#fff}
+.ci:focus{outline:none;border-color:#185FA5;background:#fff}
+.ci.r{text-align:right}
+.calc-cell{text-align:right;color:#888;font-size:12px;padding-right:10px}
+/* 마진 */
+.margin-wrap{display:grid;grid-template-columns:1fr 1fr;gap:.75rem;margin-top:.75rem}
+.margin-block{border:1px solid #e8e6e0;border-radius:10px;padding:.85rem}
+.mb-title{font-size:11px;font-weight:500;color:#888;margin-bottom:.6rem}
+.mb-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:.4rem}
+.mb-row:last-child{margin-bottom:0}
+.mb-label{font-size:11px;color:#aaa}
+.mb-val{font-size:15px;font-weight:600;color:#1a1a1a}
+.mb-val.blue{color:#185FA5}
+.mb-val.green{color:#3B6D11}
+.mb-input-row{display:flex;align-items:center;gap:6px;margin-bottom:.5rem}
+.mb-input-row label{font-size:11px;color:#888;white-space:nowrap}
+.mb-input-row input{flex:1;height:30px;padding:0 8px;border:1px solid #d0cfc8;border-radius:7px;font-size:13px;font-family:inherit;text-align:right;min-width:0}
+.mb-input-row input:focus{outline:none;border-color:#185FA5}
+.mb-input-row span{font-size:12px;color:#888}
+.divider{height:1px;background:#e8e6e0;margin:.5rem 0}
+.empty-cat{text-align:center;padding:3rem;color:#aaa;font-size:13px}
+@media(max-width:640px){.margin-wrap{grid-template-columns:1fr}.header-info{display:none}}
 </style>
 </head>
 <body>
 <div class="wrap">
   <h1>원가계산기</h1>
-
   <div class="tab-bar" id="tabBar"></div>
-
-  <!-- 원가 구성 -->
-  <div class="card">
-    <div class="card-title" id="costTitle">원가 구성</div>
-    <div class="tbl-wrap">
-      <table>
-        <colgroup>
-          <col style="width:auto"><col style="width:130px"><col style="width:90px"><col style="width:130px"><col style="width:40px">
-        </colgroup>
-        <thead>
-          <tr><th>항목명</th><th style="text-align:right">단가 (원)</th><th style="text-align:right">수량</th><th style="text-align:right">소계 (원)</th><th></th></tr>
-        </thead>
-        <tbody id="costBody"></tbody>
-        <tfoot>
-          <tr>
-            <td colspan="3" style="text-align:right">총 원가</td>
-            <td id="totalCost" style="text-align:right;color:#185FA5">0</td>
-            <td></td>
-          </tr>
-        </tfoot>
-      </table>
-    </div>
-    <div style="display:flex;gap:8px">
-      <button class="btn sm" onclick="addRow()">+ 항목 추가</button>
-      <button class="btn sm" onclick="clearAll()">전체 초기화</button>
-    </div>
-  </div>
-
-  <!-- 마진/판매가 계산 -->
-  <div class="card">
-    <div class="card-title">마진 / 판매가 계산</div>
-    <div class="result-grid">
-      <div class="result-block">
-        <h4>원가 → 판매가 계산</h4>
-        <div class="r-input-row">
-          <label>마진율</label>
-          <input type="number" id="marginRate" min="0" max="100" step="0.1" value="40" oninput="saveMargin();calcFromMargin()">
-          <span>%</span>
-        </div>
-        <div class="divider"></div>
-        <div class="r-row"><span class="r-label">총 원가</span><span class="r-value" id="disp_cost1">0 원</span></div>
-        <div class="r-row"><span class="r-label">마진 금액</span><span class="r-value green" id="disp_margin_amt">0 원</span></div>
-        <div class="r-row"><span class="r-label">판매가</span><span class="r-value primary" id="disp_sell1">0 원</span></div>
-      </div>
-      <div class="result-block">
-        <h4>판매가 → 마진율 역산</h4>
-        <div class="r-input-row">
-          <label>판매가</label>
-          <input type="number" id="sellPrice" min="0" step="100" placeholder="판매가 입력" oninput="saveSell();calcFromSell()">
-          <span>원</span>
-        </div>
-        <div class="divider"></div>
-        <div class="r-row"><span class="r-label">총 원가</span><span class="r-value" id="disp_cost2">0 원</span></div>
-        <div class="r-row"><span class="r-label">마진 금액</span><span class="r-value green" id="disp_margin_amt2">0 원</span></div>
-        <div class="r-row"><span class="r-label">마진율</span><span class="r-value primary" id="disp_margin_rate">— %</span></div>
-      </div>
-    </div>
-  </div>
+  <div id="catContent"></div>
 </div>
 
 <script>
-const CATEGORIES = ['생두', '티', '주스', '빵', '디저트'];
-
-// 카테고리별 상태 저장
+const CATS = ['생두','티','주스','빵','디저트'];
 const state = {};
-CATEGORIES.forEach(cat => {
-  state[cat] = { rows: [], nextId: 1, marginRate: 40, sellPrice: '' };
-});
+CATS.forEach(c => { state[c] = { items:[], nid:1 }; });
+let cur = CATS[0];
 
-let current = CATEGORIES[0];
+/* ── 구조 변경 시 전체 렌더 ── */
+function renderAll() {
+  renderTabs();
+  renderCat();
+}
 
-// 탭 렌더링
 function renderTabs() {
-  document.getElementById('tabBar').innerHTML = CATEGORIES.map(cat =>
-    `<button class="tab${cat === current ? ' active' : ''}" onclick="switchTab('${cat}')">${cat}</button>`
+  document.getElementById('tabBar').innerHTML = CATS.map(c =>
+    `<button class="tab${c===cur?' active':''}" onclick="switchCat('${c}')">${c}</button>`
   ).join('');
 }
 
-function switchTab(cat) {
-  current = cat;
-  renderTabs();
-  document.getElementById('costTitle').textContent = `원가 구성 — ${cat}`;
-  document.getElementById('marginRate').value = state[cat].marginRate;
-  document.getElementById('sellPrice').value = state[cat].sellPrice;
-  renderRows();
-}
-
-function addRow(name = '', price = '', qty = 1) {
-  const s = state[current];
-  const id = s.nextId++;
-  s.rows.push({ id, name, price, qty });
-  renderRows();
-  const input = document.querySelector(`#row-${id} .name-input`);
-  if (input) input.focus();
-}
-
-function removeRow(id) {
-  state[current].rows = state[current].rows.filter(r => r.id !== id);
-  renderRows();
-  recalc();
-}
-
-function renderRows() {
-  const rows = state[current].rows;
-  const tbody = document.getElementById('costBody');
-  if (rows.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;padding:1.5rem;color:#aaa;font-size:13px">항목을 추가하세요</td></tr>`;
-    recalc();
-    return;
+function renderCat() {
+  const s = state[cur];
+  let html = `<div style="display:flex;justify-content:flex-end;margin-bottom:.75rem">
+    <button class="btn primary" onclick="addItem()">+ 메뉴 추가</button>
+  </div>`;
+  if (!s.items.length) {
+    html += `<div class="empty-cat">메뉴를 추가하세요.</div>`;
+  } else {
+    html += s.items.map(item => renderItem(item)).join('');
   }
-  tbody.innerHTML = rows.map(r => `
-    <tr id="row-${r.id}">
-      <td><input class="cell-input name-input" value="${esc(r.name)}" placeholder="항목명" oninput="updateRow(${r.id},'name',this.value)"></td>
-      <td><input class="cell-input" type="number" min="0" value="${r.price}" placeholder="0" style="text-align:right" oninput="updateRow(${r.id},'price',this.value)"></td>
-      <td><input class="cell-input" type="number" min="0" step="1" value="${r.qty}" placeholder="1" style="text-align:right" oninput="updateRow(${r.id},'qty',this.value)"></td>
-      <td style="text-align:right;font-weight:500">${fmt(num(r.price) * num(r.qty))}</td>
-      <td style="text-align:center"><button class="btn sm danger" onclick="removeRow(${r.id})" style="padding:0 6px">✕</button></td>
-    </tr>
-  `).join('');
-  recalc();
+  document.getElementById('catContent').innerHTML = html;
 }
 
-function updateRow(id, field, value) {
-  const r = state[current].rows.find(r => r.id === id);
-  if (!r) return;
-  r[field] = value;
-  const tr = document.getElementById(`row-${id}`);
-  if (tr) tr.cells[3].textContent = fmt(num(r.price) * num(r.qty));
-  recalc();
+function renderItem(item) {
+  const total = itemTotal(item);
+  const rate  = parseFloat(item.marginRate) || 0;
+  const sell1 = Math.round(total * (1 + rate/100));
+
+  return `
+  <div class="menu-item" id="mi-${item.id}">
+    <div class="menu-header" onclick="handleHeaderClick(event,${item.id})">
+      <input class="menu-name-input" id="iname-${item.id}" value="${esc(item.name)}"
+        placeholder="메뉴명 입력" onclick="event.stopPropagation()"
+        oninput="state['${cur}'].items.find(i=>i.id==${item.id}).name=this.value">
+      <div class="header-info">
+        <span class="hi-label">총원가</span>
+        <span class="hi-val gray" id="ihcost-${item.id}">${fmt(Math.round(total))}원</span>
+        <span class="hi-label" style="margin-left:4px">판매가</span>
+        <span class="hi-val" id="ihsell-${item.id}">${fmt(sell1)}원</span>
+      </div>
+      <button class="toggle-btn" onclick="event.stopPropagation();toggleItem(${item.id})">${item.open?'▲':'▼'}</button>
+      <button class="btn sm danger" onclick="event.stopPropagation();removeItem(${item.id})">삭제</button>
+    </div>
+    ${item.open ? renderBody(item, total, sell1) : ''}
+  </div>`;
 }
 
-function recalc() {
-  const total = state[current].rows.reduce((s, r) => s + num(r.price) * num(r.qty), 0);
-  document.getElementById('totalCost').textContent = fmt(total);
-  document.getElementById('disp_cost1').textContent = fmt(total) + ' 원';
-  document.getElementById('disp_cost2').textContent = fmt(total) + ' 원';
-  calcFromMargin();
-  calcFromSell();
+function renderBody(item, total, sell1) {
+  const rate = parseFloat(item.marginRate) || 0;
+  const sellPrice = item.sellPrice || '';
+  const sp = parseFloat(sellPrice) || 0;
+  const marginAmt2 = sp ? sp - total : null;
+  const rate2 = (sp && total) ? ((sp-total)/total*100) : null;
+
+  const rows = item.recipe.map(r => {
+    const tq = parseFloat(r.totalQty)||0;
+    const tp = parseFloat(r.totalPrice)||0;
+    const uq = parseFloat(r.useQty)||0;
+    const unit = tq ? tp/tq : 0;
+    const sub  = unit * uq;
+    return `<tr id="rr-${item.id}-${r.id}">
+      <td><input class="ci" id="rname-${item.id}-${r.id}" value="${esc(r.name)}" placeholder="재료명"
+        oninput="updR(${item.id},${r.id},'name',this.value)"></td>
+      <td><input class="ci r" type="number" min="0" value="${r.totalQty}" placeholder="0"
+        oninput="updR(${item.id},${r.id},'totalQty',this.value)"></td>
+      <td><input class="ci r" type="number" min="0" value="${r.totalPrice}" placeholder="0"
+        oninput="updR(${item.id},${r.id},'totalPrice',this.value)"></td>
+      <td><input class="ci r" type="number" min="0" value="${r.useQty}" placeholder="0"
+        oninput="updR(${item.id},${r.id},'useQty',this.value)"></td>
+      <td class="calc-cell" id="unit-${item.id}-${r.id}">${unit.toFixed(3)}</td>
+      <td class="calc-cell" id="sub-${item.id}-${r.id}" style="color:#1a1a1a;font-weight:500">${fmt(Math.round(sub))}</td>
+      <td style="text-align:center"><button class="btn sm danger" onclick="removeRow(${item.id},${r.id})" style="padding:0 6px">✕</button></td>
+    </tr>`;
+  }).join('');
+
+  return `<div class="recipe-body">
+    <div class="tbl-wrap">
+      <table>
+        <colgroup>
+          <col style="width:auto"><col style="width:90px"><col style="width:90px">
+          <col style="width:80px"><col style="width:80px"><col style="width:80px"><col style="width:36px">
+        </colgroup>
+        <thead><tr>
+          <th>재료이름</th>
+          <th class="r">재료총량</th>
+          <th class="r">재료가격(원)</th>
+          <th class="r">사용량</th>
+          <th class="r">단위당(원)</th>
+          <th class="r">소계(원)</th>
+          <th></th>
+        </tr></thead>
+        <tbody id="tbody-${item.id}">${rows}</tbody>
+        <tfoot><tr>
+          <td colspan="5" style="text-align:right;font-size:12px;color:#888">총 원가</td>
+          <td style="text-align:right;color:#185FA5" id="itotal-${item.id}">${fmt(Math.round(total))}</td>
+          <td></td>
+        </tr></tfoot>
+      </table>
+    </div>
+    <button class="btn sm" onclick="addRow(${item.id})" style="margin-bottom:.75rem">+ 재료 추가</button>
+
+    <div class="margin-wrap">
+      <div class="margin-block">
+        <div class="mb-title">원가 → 판매가</div>
+        <div class="mb-input-row">
+          <label>마진율</label>
+          <input type="number" min="0" max="100" step="0.1" value="${rate}"
+            oninput="updMargin(${item.id},this.value)">
+          <span>%</span>
+        </div>
+        <div class="divider"></div>
+        <div class="mb-row"><span class="mb-label">총 원가</span><span class="mb-val" id="icost1-${item.id}">${fmt(Math.round(total))} 원</span></div>
+        <div class="mb-row"><span class="mb-label">마진 금액</span><span class="mb-val green" id="imargin1-${item.id}">${fmt(Math.round(sell1-total))} 원</span></div>
+        <div class="mb-row"><span class="mb-label">판매가</span><span class="mb-val blue" id="isell1-${item.id}">${fmt(sell1)} 원</span></div>
+      </div>
+      <div class="margin-block">
+        <div class="mb-title">판매가 → 마진율 역산</div>
+        <div class="mb-input-row">
+          <label>판매가</label>
+          <input type="number" min="0" step="100" value="${sellPrice}" placeholder="입력"
+            oninput="updSell(${item.id},this.value)">
+          <span>원</span>
+        </div>
+        <div class="divider"></div>
+        <div class="mb-row"><span class="mb-label">총 원가</span><span class="mb-val" id="icost2-${item.id}">${fmt(Math.round(total))} 원</span></div>
+        <div class="mb-row"><span class="mb-label">마진 금액</span><span class="mb-val green" id="imargin2-${item.id}">${marginAmt2!=null?fmt(Math.round(marginAmt2))+' 원':'— 원'}</span></div>
+        <div class="mb-row"><span class="mb-label">마진율</span><span class="mb-val blue" id="irate2-${item.id}">${rate2!=null?rate2.toFixed(1)+' %':'— %'}</span></div>
+      </div>
+    </div>
+  </div>`;
 }
 
-function calcFromMargin() {
-  const total = state[current].rows.reduce((s, r) => s + num(r.price) * num(r.qty), 0);
-  const rate = parseFloat(document.getElementById('marginRate').value) || 0;
-  const sell = total * (1 + rate / 100);
-  document.getElementById('disp_margin_amt').textContent = fmt(Math.round(sell - total)) + ' 원';
-  document.getElementById('disp_sell1').textContent = fmt(Math.round(sell)) + ' 원';
+/* ── 계산 ── */
+function itemTotal(item) {
+  return item.recipe.reduce((s,r) => {
+    const tq=parseFloat(r.totalQty)||0, tp=parseFloat(r.totalPrice)||0, uq=parseFloat(r.useQty)||0;
+    return s + (tq ? tp/tq*uq : 0);
+  }, 0);
 }
 
-function calcFromSell() {
-  const total = state[current].rows.reduce((s, r) => s + num(r.price) * num(r.qty), 0);
-  const sell = parseFloat(document.getElementById('sellPrice').value) || 0;
-  if (!sell || !total) {
-    document.getElementById('disp_margin_amt2').textContent = '— 원';
-    document.getElementById('disp_margin_rate').textContent = '— %';
-    return;
+/* ── 값 변경 (구조 변경 없이 DOM 패치) ── */
+function updR(itemId, rowId, field, value) {
+  const item = getItem(itemId);
+  const row  = item.recipe.find(r=>r.id===rowId);
+  if (!row) return;
+  row[field] = value;
+
+  const tq=parseFloat(row.totalQty)||0, tp=parseFloat(row.totalPrice)||0, uq=parseFloat(row.useQty)||0;
+  const unit = tq ? tp/tq : 0;
+  const sub  = unit*uq;
+  setTxt(`unit-${itemId}-${rowId}`, unit.toFixed(3));
+  setTxt(`sub-${itemId}-${rowId}`,  fmt(Math.round(sub)));
+  refreshTotals(itemId);
+}
+
+function updMargin(itemId, value) {
+  const item = getItem(itemId);
+  item.marginRate = value;
+  refreshTotals(itemId);
+}
+
+function updSell(itemId, value) {
+  const item = getItem(itemId);
+  item.sellPrice = value;
+  refreshTotals(itemId);
+}
+
+function refreshTotals(itemId) {
+  const item  = getItem(itemId);
+  const total = itemTotal(item);
+  const rate  = parseFloat(item.marginRate)||0;
+  const sell1 = Math.round(total*(1+rate/100));
+  const sp    = parseFloat(item.sellPrice)||0;
+
+  setTxt(`itotal-${itemId}`,   fmt(Math.round(total)));
+  setTxt(`ihcost-${itemId}`,   fmt(Math.round(total))+'원');
+  setTxt(`ihsell-${itemId}`,   fmt(sell1)+'원');
+  setTxt(`icost1-${itemId}`,   fmt(Math.round(total))+' 원');
+  setTxt(`icost2-${itemId}`,   fmt(Math.round(total))+' 원');
+  setTxt(`imargin1-${itemId}`, fmt(Math.round(sell1-total))+' 원');
+  setTxt(`isell1-${itemId}`,   fmt(sell1)+' 원');
+
+  if (sp && total) {
+    const ma = sp-total;
+    setTxt(`imargin2-${itemId}`, fmt(Math.round(ma))+' 원');
+    setTxt(`irate2-${itemId}`,   ((ma/total)*100).toFixed(1)+' %');
+  } else {
+    setTxt(`imargin2-${itemId}`, '— 원');
+    setTxt(`irate2-${itemId}`,   '— %');
   }
-  const marginAmt = sell - total;
-  document.getElementById('disp_margin_amt2').textContent = fmt(Math.round(marginAmt)) + ' 원';
-  document.getElementById('disp_margin_rate').textContent = ((marginAmt / total) * 100).toFixed(1) + ' %';
 }
 
-function saveMargin() { state[current].marginRate = parseFloat(document.getElementById('marginRate').value) || 0; }
-function saveSell()   { state[current].sellPrice  = document.getElementById('sellPrice').value; }
+/* ── 구조 변경 (전체 재렌더) ── */
+function switchCat(cat) { cur=cat; renderAll(); }
 
-function clearAll() {
-  if (state[current].rows.length && !confirm(`${current} 항목을 모두 초기화할까요?`)) return;
-  state[current].rows = [];
-  state[current].nextId = 1;
-  state[current].sellPrice = '';
-  document.getElementById('sellPrice').value = '';
-  renderRows();
+function addItem() {
+  const s=state[cur];
+  const id=s.nid++;
+  s.items.push({id, name:'', open:true, marginRate:40, sellPrice:'', recipe:[], nrid:1});
+  renderCat();
+  const el=document.getElementById(`iname-${id}`);
+  if(el) el.focus();
 }
 
-function num(v) { return parseFloat(v) || 0; }
+function removeItem(id) {
+  if(!confirm('이 메뉴를 삭제할까요?')) return;
+  state[cur].items = state[cur].items.filter(i=>i.id!==id);
+  renderCat();
+}
+
+function toggleItem(id) {
+  const item=getItem(id);
+  item.open=!item.open;
+  renderCat();
+}
+
+function addRow(itemId) {
+  const item=getItem(itemId);
+  const rid=item.nrid++;
+  item.recipe.push({id:rid, name:'', totalQty:'', totalPrice:'', useQty:''});
+  renderCat();
+  const el=document.getElementById(`rname-${itemId}-${rid}`);
+  if(el) el.focus();
+}
+
+function removeRow(itemId, rowId) {
+  const item=getItem(itemId);
+  item.recipe=item.recipe.filter(r=>r.id!==rowId);
+  renderCat();
+}
+
+function handleHeaderClick(e, id) {
+  if(e.target.tagName==='INPUT'||e.target.tagName==='BUTTON') return;
+  toggleItem(id);
+}
+
+/* ── 유틸 ── */
+function getItem(id) { return state[cur].items.find(i=>i.id===id); }
+function setTxt(id,v) { const el=document.getElementById(id); if(el) el.textContent=v; }
 function fmt(n) { return Math.round(n).toLocaleString('ko-KR'); }
-function esc(s) { return String(s).replace(/"/g, '&quot;'); }
+function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;'); }
 
-// 초기화
-renderTabs();
-switchTab(current);
+renderAll();
 </script>
 </body>
 </html>
