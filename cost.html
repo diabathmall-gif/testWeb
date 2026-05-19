@@ -1,0 +1,239 @@
+<!-- 원가 구성 입력 및 마진/판매가 계산기 (카테고리별 탭) -->
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>원가계산기</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f5f5f3;color:#1a1a1a;font-size:14px}
+.wrap{max-width:960px;margin:0 auto;padding:1.5rem 1rem}
+h1{font-size:18px;font-weight:500;margin-bottom:1.25rem}
+.btn{height:36px;padding:0 14px;border:1px solid #d0cfc8;border-radius:8px;background:#fff;font-size:13px;cursor:pointer;white-space:nowrap}
+.btn:hover{background:#f0eeea}
+.btn.primary{background:#185FA5;color:#fff;border-color:#185FA5}
+.btn.primary:hover{background:#0C447C}
+.btn.sm{height:28px;padding:0 10px;font-size:12px}
+.btn.danger{color:#A32D2D;border-color:#f09595}
+.btn.danger:hover{background:#fcebeb}
+.tab-bar{display:flex;gap:4px;margin-bottom:1rem;border-bottom:1px solid #e8e6e0}
+.tab{padding:7px 16px;font-size:13px;cursor:pointer;border-bottom:2px solid transparent;color:#888;background:none;border-top:none;border-left:none;border-right:none;font-family:inherit}
+.tab.active{color:#185FA5;border-bottom-color:#185FA5;font-weight:500}
+.card{background:#fff;border-radius:12px;border:1px solid #e8e6e0;padding:1.25rem;margin-bottom:1rem}
+.card-title{font-size:13px;font-weight:500;color:#888;margin-bottom:.9rem}
+.tbl-wrap{overflow-x:auto;border:1px solid #e8e6e0;border-radius:10px;background:#fff;margin-bottom:.75rem}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{padding:8px 10px;text-align:left;font-weight:500;font-size:11px;color:#888;border-bottom:1px solid #e8e6e0;white-space:nowrap;background:#fafaf8}
+td{padding:6px 8px;border-bottom:1px solid #f0eeea;vertical-align:middle}
+tr:last-child td{border-bottom:none}
+tfoot td{border-top:2px solid #e8e6e0;border-bottom:none;font-weight:600;background:#fafaf8;padding:9px 10px}
+.cell-input{width:100%;border:1px solid transparent;border-radius:6px;padding:4px 6px;font-size:13px;font-family:inherit;background:transparent}
+.cell-input:hover{border-color:#d0cfc8;background:#fff}
+.cell-input:focus{outline:none;border-color:#185FA5;background:#fff}
+.result-grid{display:grid;grid-template-columns:1fr 1fr;gap:1rem}
+.result-block{border:1px solid #e8e6e0;border-radius:10px;padding:1rem}
+.result-block h4{font-size:12px;font-weight:500;color:#888;margin-bottom:.75rem}
+.r-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:.6rem}
+.r-row:last-child{margin-bottom:0}
+.r-label{font-size:12px;color:#888}
+.r-value{font-size:18px;font-weight:600;color:#1a1a1a}
+.r-value.primary{color:#185FA5}
+.r-value.green{color:#3B6D11}
+.r-input-row{display:flex;align-items:center;gap:8px;margin-bottom:.6rem}
+.r-input-row label{font-size:12px;color:#888;white-space:nowrap}
+.r-input-row input{flex:1;height:34px;padding:0 10px;border:1px solid #d0cfc8;border-radius:8px;font-size:14px;font-family:inherit;text-align:right}
+.r-input-row input:focus{outline:none;border-color:#185FA5}
+.r-input-row span{font-size:13px;color:#888}
+.divider{height:1px;background:#e8e6e0;margin:.75rem 0}
+@media(max-width:600px){.result-grid{grid-template-columns:1fr}.tab{padding:7px 10px;font-size:12px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>원가계산기</h1>
+
+  <div class="tab-bar" id="tabBar"></div>
+
+  <!-- 원가 구성 -->
+  <div class="card">
+    <div class="card-title" id="costTitle">원가 구성</div>
+    <div class="tbl-wrap">
+      <table>
+        <colgroup>
+          <col style="width:auto"><col style="width:130px"><col style="width:90px"><col style="width:130px"><col style="width:40px">
+        </colgroup>
+        <thead>
+          <tr><th>항목명</th><th style="text-align:right">단가 (원)</th><th style="text-align:right">수량</th><th style="text-align:right">소계 (원)</th><th></th></tr>
+        </thead>
+        <tbody id="costBody"></tbody>
+        <tfoot>
+          <tr>
+            <td colspan="3" style="text-align:right">총 원가</td>
+            <td id="totalCost" style="text-align:right;color:#185FA5">0</td>
+            <td></td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+    <div style="display:flex;gap:8px">
+      <button class="btn sm" onclick="addRow()">+ 항목 추가</button>
+      <button class="btn sm" onclick="clearAll()">전체 초기화</button>
+    </div>
+  </div>
+
+  <!-- 마진/판매가 계산 -->
+  <div class="card">
+    <div class="card-title">마진 / 판매가 계산</div>
+    <div class="result-grid">
+      <div class="result-block">
+        <h4>원가 → 판매가 계산</h4>
+        <div class="r-input-row">
+          <label>마진율</label>
+          <input type="number" id="marginRate" min="0" max="100" step="0.1" value="40" oninput="saveMargin();calcFromMargin()">
+          <span>%</span>
+        </div>
+        <div class="divider"></div>
+        <div class="r-row"><span class="r-label">총 원가</span><span class="r-value" id="disp_cost1">0 원</span></div>
+        <div class="r-row"><span class="r-label">마진 금액</span><span class="r-value green" id="disp_margin_amt">0 원</span></div>
+        <div class="r-row"><span class="r-label">판매가</span><span class="r-value primary" id="disp_sell1">0 원</span></div>
+      </div>
+      <div class="result-block">
+        <h4>판매가 → 마진율 역산</h4>
+        <div class="r-input-row">
+          <label>판매가</label>
+          <input type="number" id="sellPrice" min="0" step="100" placeholder="판매가 입력" oninput="saveSell();calcFromSell()">
+          <span>원</span>
+        </div>
+        <div class="divider"></div>
+        <div class="r-row"><span class="r-label">총 원가</span><span class="r-value" id="disp_cost2">0 원</span></div>
+        <div class="r-row"><span class="r-label">마진 금액</span><span class="r-value green" id="disp_margin_amt2">0 원</span></div>
+        <div class="r-row"><span class="r-label">마진율</span><span class="r-value primary" id="disp_margin_rate">— %</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const CATEGORIES = ['생두', '티', '주스', '빵', '디저트'];
+
+// 카테고리별 상태 저장
+const state = {};
+CATEGORIES.forEach(cat => {
+  state[cat] = { rows: [], nextId: 1, marginRate: 40, sellPrice: '' };
+});
+
+let current = CATEGORIES[0];
+
+// 탭 렌더링
+function renderTabs() {
+  document.getElementById('tabBar').innerHTML = CATEGORIES.map(cat =>
+    `<button class="tab${cat === current ? ' active' : ''}" onclick="switchTab('${cat}')">${cat}</button>`
+  ).join('');
+}
+
+function switchTab(cat) {
+  current = cat;
+  renderTabs();
+  document.getElementById('costTitle').textContent = `원가 구성 — ${cat}`;
+  document.getElementById('marginRate').value = state[cat].marginRate;
+  document.getElementById('sellPrice').value = state[cat].sellPrice;
+  renderRows();
+}
+
+function addRow(name = '', price = '', qty = 1) {
+  const s = state[current];
+  const id = s.nextId++;
+  s.rows.push({ id, name, price, qty });
+  renderRows();
+  const input = document.querySelector(`#row-${id} .name-input`);
+  if (input) input.focus();
+}
+
+function removeRow(id) {
+  state[current].rows = state[current].rows.filter(r => r.id !== id);
+  renderRows();
+  recalc();
+}
+
+function renderRows() {
+  const rows = state[current].rows;
+  const tbody = document.getElementById('costBody');
+  if (rows.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;padding:1.5rem;color:#aaa;font-size:13px">항목을 추가하세요</td></tr>`;
+    recalc();
+    return;
+  }
+  tbody.innerHTML = rows.map(r => `
+    <tr id="row-${r.id}">
+      <td><input class="cell-input name-input" value="${esc(r.name)}" placeholder="항목명" oninput="updateRow(${r.id},'name',this.value)"></td>
+      <td><input class="cell-input" type="number" min="0" value="${r.price}" placeholder="0" style="text-align:right" oninput="updateRow(${r.id},'price',this.value)"></td>
+      <td><input class="cell-input" type="number" min="0" step="1" value="${r.qty}" placeholder="1" style="text-align:right" oninput="updateRow(${r.id},'qty',this.value)"></td>
+      <td style="text-align:right;font-weight:500">${fmt(num(r.price) * num(r.qty))}</td>
+      <td style="text-align:center"><button class="btn sm danger" onclick="removeRow(${r.id})" style="padding:0 6px">✕</button></td>
+    </tr>
+  `).join('');
+  recalc();
+}
+
+function updateRow(id, field, value) {
+  const r = state[current].rows.find(r => r.id === id);
+  if (!r) return;
+  r[field] = value;
+  const tr = document.getElementById(`row-${id}`);
+  if (tr) tr.cells[3].textContent = fmt(num(r.price) * num(r.qty));
+  recalc();
+}
+
+function recalc() {
+  const total = state[current].rows.reduce((s, r) => s + num(r.price) * num(r.qty), 0);
+  document.getElementById('totalCost').textContent = fmt(total);
+  document.getElementById('disp_cost1').textContent = fmt(total) + ' 원';
+  document.getElementById('disp_cost2').textContent = fmt(total) + ' 원';
+  calcFromMargin();
+  calcFromSell();
+}
+
+function calcFromMargin() {
+  const total = state[current].rows.reduce((s, r) => s + num(r.price) * num(r.qty), 0);
+  const rate = parseFloat(document.getElementById('marginRate').value) || 0;
+  const sell = total * (1 + rate / 100);
+  document.getElementById('disp_margin_amt').textContent = fmt(Math.round(sell - total)) + ' 원';
+  document.getElementById('disp_sell1').textContent = fmt(Math.round(sell)) + ' 원';
+}
+
+function calcFromSell() {
+  const total = state[current].rows.reduce((s, r) => s + num(r.price) * num(r.qty), 0);
+  const sell = parseFloat(document.getElementById('sellPrice').value) || 0;
+  if (!sell || !total) {
+    document.getElementById('disp_margin_amt2').textContent = '— 원';
+    document.getElementById('disp_margin_rate').textContent = '— %';
+    return;
+  }
+  const marginAmt = sell - total;
+  document.getElementById('disp_margin_amt2').textContent = fmt(Math.round(marginAmt)) + ' 원';
+  document.getElementById('disp_margin_rate').textContent = ((marginAmt / total) * 100).toFixed(1) + ' %';
+}
+
+function saveMargin() { state[current].marginRate = parseFloat(document.getElementById('marginRate').value) || 0; }
+function saveSell()   { state[current].sellPrice  = document.getElementById('sellPrice').value; }
+
+function clearAll() {
+  if (state[current].rows.length && !confirm(`${current} 항목을 모두 초기화할까요?`)) return;
+  state[current].rows = [];
+  state[current].nextId = 1;
+  state[current].sellPrice = '';
+  document.getElementById('sellPrice').value = '';
+  renderRows();
+}
+
+function num(v) { return parseFloat(v) || 0; }
+function fmt(n) { return Math.round(n).toLocaleString('ko-KR'); }
+function esc(s) { return String(s).replace(/"/g, '&quot;'); }
+
+// 초기화
+renderTabs();
+switchTab(current);
+</script>
+</body>
+</html>
