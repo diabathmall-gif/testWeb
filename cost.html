@@ -153,7 +153,11 @@ function renderBody(item, total, sell1) {
         oninput="updR(${item.id},${r.id},'useQty',this.value)"></td>
       <td class="calc-cell" id="unit-${item.id}-${r.id}">${unit.toFixed(3)}</td>
       <td class="calc-cell" id="sub-${item.id}-${r.id}" style="color:#1a1a1a;font-weight:500">${fmt(Math.round(sub))}</td>
-      <td style="text-align:center"><button class="btn sm danger" onclick="removeRow(${item.id},${r.id})" style="padding:0 6px">✕</button></td>
+      <td style="text-align:center;white-space:nowrap">
+        <button class="btn sm" onclick="moveRow(${item.id},${r.id},-1)" style="padding:0 5px">▲</button>
+        <button class="btn sm" onclick="moveRow(${item.id},${r.id},1)"  style="padding:0 5px">▼</button>
+        <button class="btn sm danger" onclick="removeRow(${item.id},${r.id})" style="padding:0 6px">✕</button>
+      </td>
     </tr>`;
   }).join('');
 
@@ -162,7 +166,7 @@ function renderBody(item, total, sell1) {
       <table>
         <colgroup>
           <col style="width:auto"><col style="width:55px"><col style="width:90px"><col style="width:90px">
-          <col style="width:80px"><col style="width:80px"><col style="width:80px"><col style="width:36px">
+          <col style="width:80px"><col style="width:80px"><col style="width:80px"><col style="width:80px">
         </colgroup>
         <thead><tr>
           <th>재료이름</th>
@@ -311,6 +315,15 @@ function addRow(itemId) {
 function removeRow(itemId, rowId) {
   const item=getItem(itemId);
   item.recipe=item.recipe.filter(r=>r.id!==rowId);
+  renderCat();
+}
+
+function moveRow(itemId, rowId, dir) {
+  const item=getItem(itemId);
+  const idx=item.recipe.findIndex(r=>r.id===rowId);
+  const target=idx+dir;
+  if(target<0||target>=item.recipe.length) return;
+  [item.recipe[idx],item.recipe[target]]=[item.recipe[target],item.recipe[idx]];
   renderCat();
 }
 
