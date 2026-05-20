@@ -21,13 +21,11 @@ h1{font-size:18px;font-weight:500;margin-bottom:1.25rem}
 .tab{padding:7px 16px;font-size:13px;cursor:pointer;border-bottom:2px solid transparent;color:#888;background:none;border-top:none;border-left:none;border-right:none;font-family:inherit}
 .tab.active{color:#185FA5;border-bottom-color:#185FA5;font-weight:500}
 .sep{width:1px;background:#e8e6e0;margin:4px 4px 0}
-/* 재료 분류 카드 */
 .cat-card{background:#fff;border:1px solid #e8e6e0;border-radius:12px;margin-bottom:.85rem;overflow:hidden}
 .cat-header{display:flex;align-items:center;gap:10px;padding:.75rem 1rem;background:#fafaf8;border-bottom:1px solid #e8e6e0}
 .cat-name-input{border:none;outline:none;font-size:14px;font-weight:500;font-family:inherit;background:transparent;flex:1;min-width:80px}
 .cat-name-input::placeholder{color:#ccc}
 .cat-body{padding:.75rem 1rem}
-/* 공용 테이블 */
 .tbl-wrap{overflow-x:auto;border:1px solid #e8e6e0;border-radius:10px;margin-bottom:.6rem}
 table{width:100%;border-collapse:collapse;font-size:12px}
 th{padding:7px 8px;text-align:left;font-weight:500;font-size:11px;color:#888;border-bottom:1px solid #e8e6e0;background:#fafaf8;white-space:nowrap}
@@ -41,7 +39,6 @@ tfoot td{border-top:2px solid #e8e6e0;border-bottom:none;font-weight:600;backgro
 .ci.r{text-align:right}
 select.ci{cursor:pointer}
 .calc-cell{text-align:right;color:#888;font-size:12px;padding-right:10px}
-/* 메뉴 항목 */
 .menu-item{border:1px solid #e8e6e0;border-radius:12px;background:#fff;margin-bottom:.75rem;overflow:hidden}
 .menu-header{display:flex;align-items:center;gap:10px;padding:.75rem 1rem;cursor:pointer;user-select:none}
 .menu-header:hover{background:#fafaf8}
@@ -53,7 +50,6 @@ select.ci{cursor:pointer}
 .hi-val.gray{color:#888}
 .toggle-btn{font-size:12px;color:#aaa;padding:2px 6px;border:none;background:none;cursor:pointer}
 .recipe-body{border-top:1px solid #e8e6e0;padding:1rem}
-/* 마진 */
 .margin-wrap{display:grid;grid-template-columns:1fr 1fr;gap:.75rem;margin-top:.75rem}
 .margin-block{border:1px solid #e8e6e0;border-radius:10px;padding:.85rem}
 .mb-title{font-size:11px;font-weight:500;color:#888;margin-bottom:.6rem}
@@ -70,52 +66,84 @@ select.ci{cursor:pointer}
 .mb-input-row span{font-size:12px;color:#888}
 .divider{height:1px;background:#e8e6e0;margin:.5rem 0}
 .empty-cat{text-align:center;padding:3rem;color:#aaa;font-size:13px}
+.loading-overlay{position:fixed;inset:0;background:rgba(255,255,255,.85);display:flex;align-items:center;justify-content:center;z-index:999;font-size:14px;color:#888;gap:8px}
 @media(max-width:640px){.margin-wrap{grid-template-columns:1fr}.header-info{display:none}}
 </style>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
+<div id="loadingOverlay" class="loading-overlay">불러오는 중...</div>
 <div class="wrap">
   <h1>원가계산기</h1>
   <div class="tab-bar" id="tabBar"></div>
   <div id="mainContent"></div>
 </div>
 <script>
+const SUPABASE_URL = 'https://htxihjzyjeacpueassvt.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imh0eGloanp5amVhY3B1ZWFzc3Z0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg1MTQ5MTAsImV4cCI6MjA5NDA5MDkxMH0.trO5wpIPdv7ar_awJZh0umhlKQAUZXoZEQGgRV0EFfE';
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
 const MENU_CATS = ['생두','티','주스','빵','디저트'];
-
-// 재료 DB: cats = [{id, name}], list = [{id, catId, name, totalQty, unit, totalPrice}]
-let ingr = { list:[], nid:1, cats:[], catNid:1 };
+let ingr = { list:[], cats:[] };
 let mstate = {};
-MENU_CATS.forEach(c => { mstate[c] = { items:[], nid:1 }; });
+MENU_CATS.forEach(c => { mstate[c] = { items:[] }; });
 let curTab = '재료 관리';
+const dbt = {}; // debounce timers
 
-/* ── localStorage ── */
-function save() {
-  try {
-    localStorage.setItem('cost_ingr',   JSON.stringify(ingr));
-    localStorage.setItem('cost_mstate', JSON.stringify(mstate));
-  } catch(e) {}
+function debounce(key, fn, ms=800) {
+  clearTimeout(dbt[key]);
+  dbt[key] = setTimeout(fn, ms);
 }
-function load() {
-  try {
-    const i=localStorage.getItem('cost_ingr');
-    if(i){ const d=JSON.parse(i); ingr.list=d.list||[]; ingr.nid=d.nid||1; ingr.cats=d.cats||[]; ingr.catNid=d.catNid||1; }
-    const m=localStorage.getItem('cost_mstate');
-    if(m){ const d=JSON.parse(m); MENU_CATS.forEach(c=>{ if(d[c]) mstate[c]=d[c]; }); }
-  } catch(e) {}
+
+/* ── 초기 로드 ── */
+async function init() {
+  loading(true);
+  const [catsR, ingrR, menusR, rowsR] = await Promise.all([
+    sb.from('cost_ingredient_categories').select('*').order('sort_order'),
+    sb.from('cost_ingredients').select('*').order('id'),
+    sb.from('cost_menus').select('*').order('sort_order'),
+    sb.from('cost_recipe_rows').select('*').order('sort_order')
+  ]);
+
+  ingr.cats = (catsR.data||[]).map(c => ({ id:c.id, name:c.name }));
+  ingr.list = (ingrR.data||[]).map(i => ({
+    id:i.id, catId:i.cat_id, name:i.name,
+    totalQty:i.total_qty, unit:i.unit, totalPrice:i.total_price
+  }));
+
+  MENU_CATS.forEach(c => { mstate[c] = { items:[] }; });
+  (menusR.data||[]).forEach(m => {
+    if (!mstate[m.category]) return;
+    const rows = (rowsR.data||[]).filter(r=>r.menu_id===m.id).map(r=>({
+      id:r.id, ingrId:r.ingr_id, unit:r.unit,
+      totalQty:r.total_qty, totalPrice:r.total_price, useQty:r.use_qty
+    }));
+    mstate[m.category].items.push({
+      id:m.id, name:m.name, open:false,
+      marginRate:m.margin_rate??40, sellPrice:m.sell_price??'', recipe:rows
+    });
+  });
+
+  loading(false);
+  renderAll();
+}
+
+function loading(v) {
+  document.getElementById('loadingOverlay').style.display = v ? 'flex' : 'none';
 }
 
 /* ── 탭 ── */
 function renderAll() { renderTabs(); renderContent(); }
 function renderTabs() {
-  let html=`<button class="tab${curTab==='재료 관리'?' active':''}" onclick="switchTab('재료 관리')">재료 관리</button>`;
-  html+=`<div class="sep"></div>`;
-  html+=MENU_CATS.map(c=>`<button class="tab${c===curTab?' active':''}" onclick="switchTab('${c}')">${c}</button>`).join('');
-  document.getElementById('tabBar').innerHTML=html;
+  let html = `<button class="tab${curTab==='재료 관리'?' active':''}" onclick="switchTab('재료 관리')">재료 관리</button>`;
+  html += `<div class="sep"></div>`;
+  html += MENU_CATS.map(c=>`<button class="tab${c===curTab?' active':''}" onclick="switchTab('${c}')">${c}</button>`).join('');
+  document.getElementById('tabBar').innerHTML = html;
 }
-function switchTab(t){ curTab=t; renderAll(); }
-function renderContent(){
-  document.getElementById('mainContent').innerHTML=
-    curTab==='재료 관리'?renderIngrHTML():renderMenuHTML(curTab);
+function switchTab(t) { curTab=t; renderAll(); }
+function renderContent() {
+  document.getElementById('mainContent').innerHTML =
+    curTab==='재료 관리' ? renderIngrHTML() : renderMenuHTML(curTab);
 }
 
 /* ══════════════ 재료 관리 ══════════════ */
@@ -124,7 +152,6 @@ function renderIngrHTML() {
     const items = ingr.list.filter(i=>i.catId===cat.id);
     const rows = items.map(ing => {
       const tq=parseFloat(ing.totalQty)||0, tp=parseFloat(ing.totalPrice)||0;
-      const up=tq?tp/tq:0;
       return `<tr id="ing-${ing.id}">
         <td><input class="ci" value="${esc(ing.name)}" placeholder="재료명"
           oninput="updIngr(${ing.id},'name',this.value)"></td>
@@ -134,7 +161,7 @@ function renderIngrHTML() {
           oninput="updIngr(${ing.id},'unit',this.value)"></td>
         <td><input class="ci r" type="number" min="0" value="${ing.totalPrice}" placeholder="0"
           oninput="updIngr(${ing.id},'totalPrice',this.value)"></td>
-        <td class="calc-cell" id="iup-${ing.id}">${up.toFixed(3)}</td>
+        <td class="calc-cell" id="iup-${ing.id}">${tq?(tp/tq).toFixed(3):'0.000'}</td>
         <td style="text-align:center">
           <button class="btn sm danger" onclick="removeIngr(${ing.id})" style="padding:0 6px">✕</button>
         </td>
@@ -148,75 +175,84 @@ function renderIngrHTML() {
         <button class="btn sm danger" onclick="removeCat(${cat.id})">분류 삭제</button>
       </div>
       <div class="cat-body">
-        <div class="tbl-wrap">
-          <table>
-            <colgroup>
-              <col style="width:auto"><col style="width:90px"><col style="width:55px">
-              <col style="width:100px"><col style="width:90px"><col style="width:40px">
-            </colgroup>
-            <thead><tr>
-              <th>재료이름</th><th class="r">재료총량</th><th>단위</th>
-              <th class="r">재료가격(원)</th><th class="r">단위당(원)</th><th></th>
-            </tr></thead>
-            <tbody>${rows}</tbody>
-          </table>
-        </div>
+        <div class="tbl-wrap"><table>
+          <colgroup>
+            <col style="width:auto"><col style="width:90px"><col style="width:55px">
+            <col style="width:100px"><col style="width:90px"><col style="width:40px">
+          </colgroup>
+          <thead><tr>
+            <th>재료이름</th><th class="r">재료총량</th><th>단위</th>
+            <th class="r">재료가격(원)</th><th class="r">단위당(원)</th><th></th>
+          </tr></thead>
+          <tbody>${rows}</tbody>
+        </table></div>
         <button class="btn sm" onclick="addIngr(${cat.id})">+ 재료 추가</button>
       </div>
     </div>`;
   }).join('');
 
-  const empty = !ingr.cats.length
-    ? `<div class="empty-cat">분류를 추가하세요.</div>` : '';
-
   return `<div style="display:flex;justify-content:flex-end;margin-bottom:.75rem">
     <button class="btn primary" onclick="addCat()">+ 분류 추가</button>
   </div>
-  ${cards}${empty}`;
+  ${cards || '<div class="empty-cat">분류를 추가하세요.</div>'}`;
 }
 
-function addCat() {
-  const id=ingr.catNid++;
-  ingr.cats.push({id, name:''});
-  save(); renderContent();
+/* ── 분류 CRUD ── */
+async function addCat() {
+  const { data, error } = await sb.from('cost_ingredient_categories')
+    .insert({ name:'', sort_order:ingr.cats.length }).select().single();
+  if (error) { alert('저장 실패: '+error.message); return; }
+  ingr.cats.push({ id:data.id, name:'' });
+  renderContent();
   const inputs=document.querySelectorAll('.cat-name-input');
-  if(inputs.length) inputs[inputs.length-1].focus();
+  if (inputs.length) inputs[inputs.length-1].focus();
 }
 
-function removeCat(id) {
-  const hasItems=ingr.list.some(i=>i.catId===id);
-  if(hasItems && !confirm('이 분류의 재료도 모두 삭제됩니다. 계속할까요?')) return;
-  ingr.cats=ingr.cats.filter(c=>c.id!==id);
-  ingr.list=ingr.list.filter(i=>i.catId!==id);
-  save(); renderContent();
+async function removeCat(id) {
+  const hasItems = ingr.list.some(i=>i.catId===id);
+  if (hasItems && !confirm('이 분류의 재료도 모두 삭제됩니다. 계속할까요?')) return;
+  loading(true);
+  await sb.from('cost_ingredient_categories').delete().eq('id',id);
+  ingr.cats = ingr.cats.filter(c=>c.id!==id);
+  ingr.list = ingr.list.filter(i=>i.catId!==id);
+  loading(false);
+  renderContent();
 }
 
 function renameCat(id, name) {
-  const cat=ingr.cats.find(c=>c.id===id);
-  if(cat){ cat.name=name; save(); }
+  const cat=ingr.cats.find(c=>c.id===id); if(!cat) return;
+  cat.name=name;
+  debounce(`cat-${id}`, ()=>sb.from('cost_ingredient_categories').update({name}).eq('id',id));
 }
 
-function addIngr(catId) {
-  ingr.list.push({id:ingr.nid++, catId, name:'', totalQty:'', unit:'g', totalPrice:''});
-  save(); renderContent();
-  // 방금 추가된 행 포커스
+/* ── 재료 CRUD ── */
+async function addIngr(catId) {
+  const { data, error } = await sb.from('cost_ingredients')
+    .insert({ cat_id:catId, name:'', total_qty:0, unit:'g', total_price:0 }).select().single();
+  if (error) { alert('저장 실패: '+error.message); return; }
+  ingr.list.push({ id:data.id, catId, name:'', totalQty:'', unit:'g', totalPrice:'' });
+  renderContent();
   const trs=document.querySelectorAll('[id^="ing-"]');
-  if(trs.length){ const inp=trs[trs.length-1].querySelector('input'); if(inp) inp.focus(); }
+  if (trs.length) { const inp=trs[trs.length-1].querySelector('input'); if(inp) inp.focus(); }
 }
 
-function removeIngr(id) {
+async function removeIngr(id) {
+  await sb.from('cost_ingredients').delete().eq('id',id);
   ingr.list=ingr.list.filter(i=>i.id!==id);
-  save(); renderContent();
+  renderContent();
 }
 
 function updIngr(id, field, val) {
-  const ing=ingr.list.find(i=>i.id===id);
-  if(!ing) return;
-  ing[field]=val; save();
-  if(field==='totalQty'||field==='totalPrice') {
+  const ing=ingr.list.find(i=>i.id===id); if(!ing) return;
+  ing[field]=val;
+  if (field==='totalQty'||field==='totalPrice') {
     const tq=parseFloat(ing.totalQty)||0, tp=parseFloat(ing.totalPrice)||0;
     setTxt(`iup-${id}`, tq?(tp/tq).toFixed(3):'0.000');
   }
+  debounce(`ingr-${id}`, ()=>sb.from('cost_ingredients').update({
+    name:ing.name, total_qty:parseFloat(ing.totalQty)||0,
+    unit:ing.unit, total_price:parseFloat(ing.totalPrice)||0
+  }).eq('id',id));
 }
 
 /* ══════════════ 메뉴 탭 ══════════════ */
@@ -225,7 +261,7 @@ function renderMenuHTML(cat) {
   let html=`<div style="display:flex;justify-content:flex-end;margin-bottom:.75rem">
     <button class="btn primary" onclick="addItem()">+ 메뉴 추가</button>
   </div>`;
-  if(!s.items.length) html+=`<div class="empty-cat">메뉴를 추가하세요.</div>`;
+  if (!s.items.length) html+=`<div class="empty-cat">메뉴를 추가하세요.</div>`;
   else html+=s.items.map(item=>renderItemHTML(item)).join('');
   return html;
 }
@@ -238,7 +274,7 @@ function renderItemHTML(item) {
     <div class="menu-header" onclick="handleHeaderClick(event,${item.id})">
       <input class="menu-name-input" id="iname-${item.id}" value="${esc(item.name)}"
         placeholder="메뉴명 입력" onclick="event.stopPropagation()"
-        oninput="getItem(${item.id}).name=this.value;save()">
+        oninput="updItemName(${item.id},this.value)">
       <div class="header-info">
         <span class="hi-label">총원가</span>
         <span class="hi-val gray" id="ihcost-${item.id}">${fmt(Math.round(total))}원</span>
@@ -252,13 +288,12 @@ function renderItemHTML(item) {
   </div>`;
 }
 
-/* 재료 선택 드롭다운 (분류별 그룹) */
 function buildIngrOpts(selectedId) {
-  if(!ingr.cats.length) return `<option value="">재료 관리에서 먼저 추가하세요</option>`;
+  if (!ingr.cats.length) return `<option value="">재료 관리에서 먼저 추가하세요</option>`;
   let o=`<option value="">— 선택 —</option>`;
   ingr.cats.forEach(cat => {
     const items=ingr.list.filter(i=>i.catId===cat.id&&i.name);
-    if(!items.length) return;
+    if (!items.length) return;
     o+=`<optgroup label="${esc(cat.name||'(미분류)')}">`;
     items.forEach(i=>{ o+=`<option value="${i.id}"${i.id===selectedId?' selected':''}>${esc(i.name)}</option>`; });
     o+=`</optgroup>`;
@@ -343,40 +378,113 @@ function renderBodyHTML(item, total, sell1) {
   </div>`;
 }
 
-/* ── 재료 선택 시 자동 채우기 ── */
-function selectIngr(itemId, rowId, ingrIdStr) {
-  const item=getItem(itemId), row=item.recipe.find(r=>r.id===rowId);
-  if(!row) return;
-  const ingrId=ingrIdStr?parseInt(ingrIdStr):null;
-  row.ingrId=ingrId;
-  if(ingrId){
-    const ing=ingr.list.find(i=>i.id===ingrId);
-    if(ing){ row.unit=ing.unit||'g'; row.totalQty=ing.totalQty; row.totalPrice=ing.totalPrice; }
-  }
-  save(); renderContent();
+/* ── 메뉴 CRUD ── */
+async function addItem() {
+  const s=mstate[curTab];
+  const { data, error } = await sb.from('cost_menus')
+    .insert({ category:curTab, name:'', margin_rate:40, sort_order:s.items.length }).select().single();
+  if (error) { alert('저장 실패: '+error.message); return; }
+  s.items.push({ id:data.id, name:'', open:true, marginRate:40, sellPrice:'', recipe:[] });
+  renderContent();
+  const el=document.getElementById(`iname-${data.id}`); if(el) el.focus();
 }
 
-/* ── 계산 ── */
+async function removeItem(id) {
+  if (!confirm('이 메뉴를 삭제할까요?')) return;
+  loading(true);
+  await sb.from('cost_menus').delete().eq('id',id);
+  mstate[curTab].items=mstate[curTab].items.filter(i=>i.id!==id);
+  loading(false);
+  renderContent();
+}
+
+function toggleItem(id) { const i=getItem(id); i.open=!i.open; renderContent(); }
+
+function updItemName(id, val) {
+  const item=getItem(id); if(!item) return;
+  item.name=val;
+  debounce(`menu-${id}-name`, ()=>sb.from('cost_menus').update({name:val}).eq('id',id));
+}
+
+function updMargin(itemId, val) {
+  const item=getItem(itemId); if(!item) return;
+  item.marginRate=val; refreshTotals(itemId);
+  debounce(`menu-${itemId}-margin`, ()=>sb.from('cost_menus').update({margin_rate:parseFloat(val)||0}).eq('id',itemId));
+}
+
+function updSell(itemId, val) {
+  const item=getItem(itemId); if(!item) return;
+  item.sellPrice=val; refreshTotals(itemId);
+  debounce(`menu-${itemId}-sell`, ()=>sb.from('cost_menus').update({sell_price:parseFloat(val)||null}).eq('id',itemId));
+}
+
+/* ── 레시피 CRUD ── */
+async function addRow(itemId) {
+  const item=getItem(itemId);
+  const { data, error } = await sb.from('cost_recipe_rows')
+    .insert({ menu_id:itemId, ingr_id:null, unit:'g', total_qty:0, total_price:0, use_qty:0, sort_order:item.recipe.length })
+    .select().single();
+  if (error) { alert('저장 실패: '+error.message); return; }
+  item.recipe.push({ id:data.id, ingrId:null, unit:'g', totalQty:'', totalPrice:'', useQty:'' });
+  renderContent();
+}
+
+async function removeRow(itemId, rowId) {
+  await sb.from('cost_recipe_rows').delete().eq('id',rowId);
+  const item=getItem(itemId);
+  item.recipe=item.recipe.filter(r=>r.id!==rowId);
+  renderContent();
+}
+
+async function moveRow(itemId, rowId, dir) {
+  const item=getItem(itemId);
+  const idx=item.recipe.findIndex(r=>r.id===rowId), t=idx+dir;
+  if (t<0||t>=item.recipe.length) return;
+  [item.recipe[idx],item.recipe[t]]=[item.recipe[t],item.recipe[idx]];
+  renderContent();
+  await Promise.all(item.recipe.map((r,i)=>
+    sb.from('cost_recipe_rows').update({sort_order:i}).eq('id',r.id)
+  ));
+}
+
+async function selectIngr(itemId, rowId, ingrIdStr) {
+  const item=getItem(itemId), row=item.recipe.find(r=>r.id===rowId);
+  if (!row) return;
+  const ingrId=ingrIdStr?parseInt(ingrIdStr):null;
+  row.ingrId=ingrId;
+  if (ingrId) {
+    const ing=ingr.list.find(i=>i.id===ingrId);
+    if (ing) { row.unit=ing.unit||'g'; row.totalQty=ing.totalQty; row.totalPrice=ing.totalPrice; }
+  }
+  renderContent();
+  await sb.from('cost_recipe_rows').update({
+    ingr_id:ingrId, unit:row.unit,
+    total_qty:parseFloat(row.totalQty)||0, total_price:parseFloat(row.totalPrice)||0
+  }).eq('id',rowId);
+}
+
+function updR(itemId, rowId, field, val) {
+  const item=getItem(itemId), row=item.recipe.find(r=>r.id===rowId);
+  if (!row) return;
+  row[field]=val;
+  const tq=parseFloat(row.totalQty)||0, tp=parseFloat(row.totalPrice)||0, uq=parseFloat(row.useQty)||0;
+  const unit=tq?tp/tq:0;
+  setTxt(`unit-${itemId}-${rowId}`, unit.toFixed(3));
+  setTxt(`sub-${itemId}-${rowId}`,  fmt(Math.round(unit*uq)));
+  refreshTotals(itemId);
+  debounce(`row-${rowId}`, ()=>sb.from('cost_recipe_rows').update({
+    unit:row.unit, total_qty:parseFloat(row.totalQty)||0,
+    total_price:parseFloat(row.totalPrice)||0, use_qty:parseFloat(row.useQty)||0
+  }).eq('id',rowId));
+}
+
+/* ── 계산 / DOM 패치 ── */
 function itemTotal(item) {
   return item.recipe.reduce((s,r)=>{
     const tq=parseFloat(r.totalQty)||0, tp=parseFloat(r.totalPrice)||0, uq=parseFloat(r.useQty)||0;
     return s+(tq?tp/tq*uq:0);
   },0);
 }
-
-/* ── DOM 패치 ── */
-function updR(itemId, rowId, field, val) {
-  const item=getItem(itemId), row=item.recipe.find(r=>r.id===rowId);
-  if(!row) return;
-  row[field]=val; save();
-  const tq=parseFloat(row.totalQty)||0, tp=parseFloat(row.totalPrice)||0, uq=parseFloat(row.useQty)||0;
-  const unit=tq?tp/tq:0;
-  setTxt(`unit-${itemId}-${rowId}`, unit.toFixed(3));
-  setTxt(`sub-${itemId}-${rowId}`,  fmt(Math.round(unit*uq)));
-  refreshTotals(itemId);
-}
-function updMargin(itemId,val){ const i=getItem(itemId); i.marginRate=val; save(); refreshTotals(itemId); }
-function updSell(itemId,val)  { const i=getItem(itemId); i.sellPrice=val;  save(); refreshTotals(itemId); }
 
 function refreshTotals(itemId) {
   const item=getItem(itemId), total=itemTotal(item);
@@ -389,7 +497,7 @@ function refreshTotals(itemId) {
   setTxt(`icost2-${itemId}`,   fmt(Math.round(total))+' 원');
   setTxt(`imargin1-${itemId}`, fmt(Math.round(sell1-total))+' 원');
   setTxt(`isell1-${itemId}`,   fmt(sell1)+' 원');
-  if(sp&&total){
+  if (sp&&total) {
     setTxt(`imargin2-${itemId}`, fmt(Math.round(sp-total))+' 원');
     setTxt(`irate2-${itemId}`,   ((sp-total)/total*100).toFixed(1)+' %');
   } else {
@@ -398,48 +506,18 @@ function refreshTotals(itemId) {
   }
 }
 
-/* ── 구조 변경 ── */
-function addItem() {
-  const s=mstate[curTab], id=s.nid++;
-  s.items.push({id, name:'', open:true, marginRate:40, sellPrice:'', recipe:[], nrid:1});
-  save(); renderContent();
-  const el=document.getElementById(`iname-${id}`); if(el) el.focus();
-}
-function removeItem(id) {
-  if(!confirm('이 메뉴를 삭제할까요?')) return;
-  mstate[curTab].items=mstate[curTab].items.filter(i=>i.id!==id);
-  save(); renderContent();
-}
-function toggleItem(id){ const i=getItem(id); i.open=!i.open; save(); renderContent(); }
-function addRow(itemId) {
-  const item=getItem(itemId), rid=item.nrid++;
-  item.recipe.push({id:rid, ingrId:null, unit:'g', totalQty:'', totalPrice:'', useQty:''});
-  save(); renderContent();
-}
-function removeRow(itemId,rowId) {
-  const item=getItem(itemId);
-  item.recipe=item.recipe.filter(r=>r.id!==rowId);
-  save(); renderContent();
-}
-function moveRow(itemId,rowId,dir) {
-  const item=getItem(itemId), idx=item.recipe.findIndex(r=>r.id===rowId), t=idx+dir;
-  if(t<0||t>=item.recipe.length) return;
-  [item.recipe[idx],item.recipe[t]]=[item.recipe[t],item.recipe[idx]];
-  save(); renderContent();
-}
-function handleHeaderClick(e,id){
-  if(['INPUT','BUTTON','SELECT'].includes(e.target.tagName)) return;
+function handleHeaderClick(e,id) {
+  if (['INPUT','BUTTON','SELECT'].includes(e.target.tagName)) return;
   toggleItem(id);
 }
 
 /* ── 유틸 ── */
-function getItem(id){ return mstate[curTab].items.find(i=>i.id===id); }
-function setTxt(id,v){ const el=document.getElementById(id); if(el) el.textContent=v; }
-function fmt(n){ return Math.round(n).toLocaleString('ko-KR'); }
-function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;'); }
+function getItem(id) { return mstate[curTab].items.find(i=>i.id===id); }
+function setTxt(id,v) { const el=document.getElementById(id); if(el) el.textContent=v; }
+function fmt(n) { return Math.round(n).toLocaleString('ko-KR'); }
+function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;'); }
 
-load();
-renderAll();
+init();
 </script>
 </body>
 </html>
