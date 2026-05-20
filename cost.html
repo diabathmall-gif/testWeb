@@ -20,11 +20,15 @@ h1{font-size:18px;font-weight:500;margin-bottom:1.25rem}
 .tab-bar{display:flex;gap:4px;margin-bottom:1rem;border-bottom:1px solid #e8e6e0;flex-wrap:wrap}
 .tab{padding:7px 16px;font-size:13px;cursor:pointer;border-bottom:2px solid transparent;color:#888;background:none;border-top:none;border-left:none;border-right:none;font-family:inherit}
 .tab.active{color:#185FA5;border-bottom-color:#185FA5;font-weight:500}
-.tab.mgr{color:#5a5a5a}
-.tab.mgr.active{color:#185FA5;border-bottom-color:#185FA5}
 .sep{width:1px;background:#e8e6e0;margin:4px 4px 0}
-.card{background:#fff;border-radius:12px;border:1px solid #e8e6e0;overflow:hidden;margin-bottom:1rem}
-.tbl-wrap{overflow-x:auto}
+/* 재료 분류 카드 */
+.cat-card{background:#fff;border:1px solid #e8e6e0;border-radius:12px;margin-bottom:.85rem;overflow:hidden}
+.cat-header{display:flex;align-items:center;gap:10px;padding:.75rem 1rem;background:#fafaf8;border-bottom:1px solid #e8e6e0}
+.cat-name-input{border:none;outline:none;font-size:14px;font-weight:500;font-family:inherit;background:transparent;flex:1;min-width:80px}
+.cat-name-input::placeholder{color:#ccc}
+.cat-body{padding:.75rem 1rem}
+/* 공용 테이블 */
+.tbl-wrap{overflow-x:auto;border:1px solid #e8e6e0;border-radius:10px;margin-bottom:.6rem}
 table{width:100%;border-collapse:collapse;font-size:12px}
 th{padding:7px 8px;text-align:left;font-weight:500;font-size:11px;color:#888;border-bottom:1px solid #e8e6e0;background:#fafaf8;white-space:nowrap}
 th.r{text-align:right}
@@ -35,7 +39,7 @@ tfoot td{border-top:2px solid #e8e6e0;border-bottom:none;font-weight:600;backgro
 .ci:hover{border-color:#d0cfc8;background:#fff}
 .ci:focus{outline:none;border-color:#185FA5;background:#fff}
 .ci.r{text-align:right}
-select.ci{cursor:pointer;padding-right:2px}
+select.ci{cursor:pointer}
 .calc-cell{text-align:right;color:#888;font-size:12px;padding-right:10px}
 /* 메뉴 항목 */
 .menu-item{border:1px solid #e8e6e0;border-radius:12px;background:#fff;margin-bottom:.75rem;overflow:hidden}
@@ -78,9 +82,8 @@ select.ci{cursor:pointer;padding-right:2px}
 <script>
 const MENU_CATS = ['생두','티','주스','빵','디저트'];
 
-// 재료 DB
-let ingr = { list:[], nid:1 };
-// 메뉴별 상태
+// 재료 DB: cats = [{id, name}], list = [{id, catId, name, totalQty, unit, totalPrice}]
+let ingr = { list:[], nid:1, cats:[], catNid:1 };
 let mstate = {};
 MENU_CATS.forEach(c => { mstate[c] = { items:[], nid:1 }; });
 let curTab = '재료 관리';
@@ -95,80 +98,110 @@ function save() {
 function load() {
   try {
     const i=localStorage.getItem('cost_ingr');
-    if(i){ const d=JSON.parse(i); ingr.list=d.list||[]; ingr.nid=d.nid||1; }
+    if(i){ const d=JSON.parse(i); ingr.list=d.list||[]; ingr.nid=d.nid||1; ingr.cats=d.cats||[]; ingr.catNid=d.catNid||1; }
     const m=localStorage.getItem('cost_mstate');
     if(m){ const d=JSON.parse(m); MENU_CATS.forEach(c=>{ if(d[c]) mstate[c]=d[c]; }); }
   } catch(e) {}
 }
 
-/* ── 탭 렌더 ── */
+/* ── 탭 ── */
 function renderAll() { renderTabs(); renderContent(); }
-
 function renderTabs() {
-  let html = `<button class="tab mgr${curTab==='재료 관리'?' active':''}" onclick="switchTab('재료 관리')">재료 관리</button>`;
-  html += `<div class="sep"></div>`;
-  html += MENU_CATS.map(c =>
-    `<button class="tab${c===curTab?' active':''}" onclick="switchTab('${c}')">${c}</button>`
-  ).join('');
-  document.getElementById('tabBar').innerHTML = html;
+  let html=`<button class="tab${curTab==='재료 관리'?' active':''}" onclick="switchTab('재료 관리')">재료 관리</button>`;
+  html+=`<div class="sep"></div>`;
+  html+=MENU_CATS.map(c=>`<button class="tab${c===curTab?' active':''}" onclick="switchTab('${c}')">${c}</button>`).join('');
+  document.getElementById('tabBar').innerHTML=html;
 }
-
-function switchTab(t) { curTab=t; renderAll(); }
-
-function renderContent() {
-  document.getElementById('mainContent').innerHTML =
-    curTab==='재료 관리' ? renderIngrHTML() : renderMenuHTML(curTab);
+function switchTab(t){ curTab=t; renderAll(); }
+function renderContent(){
+  document.getElementById('mainContent').innerHTML=
+    curTab==='재료 관리'?renderIngrHTML():renderMenuHTML(curTab);
 }
 
 /* ══════════════ 재료 관리 ══════════════ */
 function renderIngrHTML() {
-  const rows = ingr.list.map(ing => {
-    const tq=parseFloat(ing.totalQty)||0, tp=parseFloat(ing.totalPrice)||0;
-    const up = tq ? tp/tq : 0;
-    return `<tr id="ing-${ing.id}">
-      <td><input class="ci" value="${esc(ing.category)}" placeholder="분류"
-        oninput="updIngr(${ing.id},'category',this.value)"></td>
-      <td><input class="ci" value="${esc(ing.name)}" placeholder="재료명"
-        oninput="updIngr(${ing.id},'name',this.value)"></td>
-      <td><input class="ci" value="${esc(ing.unit||'g')}" placeholder="g"
-        oninput="updIngr(${ing.id},'unit',this.value)"></td>
-      <td><input class="ci r" type="number" min="0" value="${ing.totalQty}" placeholder="0"
-        oninput="updIngr(${ing.id},'totalQty',this.value)"></td>
-      <td><input class="ci r" type="number" min="0" value="${ing.totalPrice}" placeholder="0"
-        oninput="updIngr(${ing.id},'totalPrice',this.value)"></td>
-      <td class="calc-cell" id="iup-${ing.id}">${up.toFixed(3)}</td>
-      <td style="text-align:center">
-        <button class="btn sm danger" onclick="removeIngr(${ing.id})" style="padding:0 6px">✕</button>
-      </td>
-    </tr>`;
-  }).join('') || `<tr><td colspan="7" style="text-align:center;padding:2rem;color:#aaa">재료를 추가하세요.</td></tr>`;
+  const cards = ingr.cats.map(cat => {
+    const items = ingr.list.filter(i=>i.catId===cat.id);
+    const rows = items.map(ing => {
+      const tq=parseFloat(ing.totalQty)||0, tp=parseFloat(ing.totalPrice)||0;
+      const up=tq?tp/tq:0;
+      return `<tr id="ing-${ing.id}">
+        <td><input class="ci" value="${esc(ing.name)}" placeholder="재료명"
+          oninput="updIngr(${ing.id},'name',this.value)"></td>
+        <td><input class="ci r" type="number" min="0" value="${ing.totalQty}" placeholder="0"
+          oninput="updIngr(${ing.id},'totalQty',this.value)"></td>
+        <td><input class="ci" value="${esc(ing.unit||'g')}" placeholder="g"
+          oninput="updIngr(${ing.id},'unit',this.value)"></td>
+        <td><input class="ci r" type="number" min="0" value="${ing.totalPrice}" placeholder="0"
+          oninput="updIngr(${ing.id},'totalPrice',this.value)"></td>
+        <td class="calc-cell" id="iup-${ing.id}">${up.toFixed(3)}</td>
+        <td style="text-align:center">
+          <button class="btn sm danger" onclick="removeIngr(${ing.id})" style="padding:0 6px">✕</button>
+        </td>
+      </tr>`;
+    }).join('') || `<tr><td colspan="6" style="text-align:center;padding:1rem;color:#aaa;font-size:12px">재료를 추가하세요.</td></tr>`;
 
-  return `
-    <div style="display:flex;justify-content:flex-end;margin-bottom:.75rem">
-      <button class="btn primary" onclick="addIngr()">+ 재료 추가</button>
-    </div>
-    <div class="card">
-      <div class="tbl-wrap">
-        <table>
-          <colgroup>
-            <col style="width:110px"><col style="width:auto"><col style="width:55px">
-            <col style="width:90px"><col style="width:100px"><col style="width:90px"><col style="width:40px">
-          </colgroup>
-          <thead><tr>
-            <th>분류</th><th>재료이름</th><th>단위</th>
-            <th class="r">재료총량</th><th class="r">재료가격(원)</th><th class="r">단위당(원)</th><th></th>
-          </tr></thead>
-          <tbody id="ingrBody">${rows}</tbody>
-        </table>
+    return `<div class="cat-card">
+      <div class="cat-header">
+        <input class="cat-name-input" value="${esc(cat.name)}" placeholder="분류명"
+          oninput="renameCat(${cat.id},this.value)">
+        <button class="btn sm danger" onclick="removeCat(${cat.id})">분류 삭제</button>
+      </div>
+      <div class="cat-body">
+        <div class="tbl-wrap">
+          <table>
+            <colgroup>
+              <col style="width:auto"><col style="width:90px"><col style="width:55px">
+              <col style="width:100px"><col style="width:90px"><col style="width:40px">
+            </colgroup>
+            <thead><tr>
+              <th>재료이름</th><th class="r">재료총량</th><th>단위</th>
+              <th class="r">재료가격(원)</th><th class="r">단위당(원)</th><th></th>
+            </tr></thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </div>
+        <button class="btn sm" onclick="addIngr(${cat.id})">+ 재료 추가</button>
       </div>
     </div>`;
+  }).join('');
+
+  const empty = !ingr.cats.length
+    ? `<div class="empty-cat">분류를 추가하세요.</div>` : '';
+
+  return `<div style="display:flex;justify-content:flex-end;margin-bottom:.75rem">
+    <button class="btn primary" onclick="addCat()">+ 분류 추가</button>
+  </div>
+  ${cards}${empty}`;
 }
 
-function addIngr() {
-  ingr.list.push({id:ingr.nid++, category:'', name:'', unit:'g', totalQty:'', totalPrice:''});
+function addCat() {
+  const id=ingr.catNid++;
+  ingr.cats.push({id, name:''});
   save(); renderContent();
-  const rows=document.querySelectorAll('[id^="ing-"]');
-  if(rows.length){ const inp=rows[rows.length-1].querySelector('input'); if(inp) inp.focus(); }
+  const inputs=document.querySelectorAll('.cat-name-input');
+  if(inputs.length) inputs[inputs.length-1].focus();
+}
+
+function removeCat(id) {
+  const hasItems=ingr.list.some(i=>i.catId===id);
+  if(hasItems && !confirm('이 분류의 재료도 모두 삭제됩니다. 계속할까요?')) return;
+  ingr.cats=ingr.cats.filter(c=>c.id!==id);
+  ingr.list=ingr.list.filter(i=>i.catId!==id);
+  save(); renderContent();
+}
+
+function renameCat(id, name) {
+  const cat=ingr.cats.find(c=>c.id===id);
+  if(cat){ cat.name=name; save(); }
+}
+
+function addIngr(catId) {
+  ingr.list.push({id:ingr.nid++, catId, name:'', totalQty:'', unit:'g', totalPrice:''});
+  save(); renderContent();
+  // 방금 추가된 행 포커스
+  const trs=document.querySelectorAll('[id^="ing-"]');
+  if(trs.length){ const inp=trs[trs.length-1].querySelector('input'); if(inp) inp.focus(); }
 }
 
 function removeIngr(id) {
@@ -182,7 +215,7 @@ function updIngr(id, field, val) {
   ing[field]=val; save();
   if(field==='totalQty'||field==='totalPrice') {
     const tq=parseFloat(ing.totalQty)||0, tp=parseFloat(ing.totalPrice)||0;
-    setTxt(`iup-${id}`, tq ? (tp/tq).toFixed(3) : '0.000');
+    setTxt(`iup-${id}`, tq?(tp/tq).toFixed(3):'0.000');
   }
 }
 
@@ -219,15 +252,14 @@ function renderItemHTML(item) {
   </div>`;
 }
 
-/* 재료 드롭다운 옵션 (분류별 그룹) */
+/* 재료 선택 드롭다운 (분류별 그룹) */
 function buildIngrOpts(selectedId) {
-  if(!ingr.list.length) return `<option value="">재료 관리 탭에서 먼저 추가하세요</option>`;
-  const cats=[...new Set(ingr.list.map(i=>i.category||'미분류'))].sort();
+  if(!ingr.cats.length) return `<option value="">재료 관리에서 먼저 추가하세요</option>`;
   let o=`<option value="">— 선택 —</option>`;
-  cats.forEach(cat => {
-    const items=ingr.list.filter(i=>(i.category||'미분류')===cat&&i.name);
+  ingr.cats.forEach(cat => {
+    const items=ingr.list.filter(i=>i.catId===cat.id&&i.name);
     if(!items.length) return;
-    o+=`<optgroup label="${esc(cat)}">`;
+    o+=`<optgroup label="${esc(cat.name||'(미분류)')}">`;
     items.forEach(i=>{ o+=`<option value="${i.id}"${i.id===selectedId?' selected':''}>${esc(i.name)}</option>`; });
     o+=`</optgroup>`;
   });
@@ -239,19 +271,15 @@ function renderBodyHTML(item, total, sell1) {
   const sp=parseFloat(item.sellPrice)||0;
   const ma2=sp?sp-total:null, r2=(sp&&total)?(sp-total)/total*100:null;
 
-  const rows=item.recipe.map(r => {
+  const rows=item.recipe.map(r=>{
     const tq=parseFloat(r.totalQty)||0, tp=parseFloat(r.totalPrice)||0, uq=parseFloat(r.useQty)||0;
     const unit=tq?tp/tq:0, sub=unit*uq;
     return `<tr id="rr-${item.id}-${r.id}">
-      <td>
-        <select class="ci" onchange="selectIngr(${item.id},${r.id},this.value)">
-          ${buildIngrOpts(r.ingrId)}
-        </select>
-      </td>
-      <td><input class="ci" value="${esc(r.unit||'g')}" placeholder="g"
-        oninput="updR(${item.id},${r.id},'unit',this.value)"></td>
+      <td><select class="ci" onchange="selectIngr(${item.id},${r.id},this.value)">${buildIngrOpts(r.ingrId)}</select></td>
       <td><input class="ci r" type="number" min="0" value="${r.totalQty}" placeholder="0"
         oninput="updR(${item.id},${r.id},'totalQty',this.value)"></td>
+      <td><input class="ci" value="${esc(r.unit||'g')}" placeholder="g"
+        oninput="updR(${item.id},${r.id},'unit',this.value)"></td>
       <td><input class="ci r" type="number" min="0" value="${r.totalPrice}" placeholder="0"
         oninput="updR(${item.id},${r.id},'totalPrice',this.value)"></td>
       <td><input class="ci r" type="number" min="0" value="${r.useQty}" placeholder="0"
@@ -267,14 +295,14 @@ function renderBodyHTML(item, total, sell1) {
   }).join('');
 
   return `<div class="recipe-body">
-    <div class="tbl-wrap" style="border:1px solid #e8e6e0;border-radius:10px;margin-bottom:.75rem">
+    <div class="tbl-wrap">
       <table>
         <colgroup>
-          <col style="width:160px"><col style="width:55px"><col style="width:85px"><col style="width:90px">
+          <col style="width:160px"><col style="width:85px"><col style="width:55px"><col style="width:90px">
           <col style="width:75px"><col style="width:78px"><col style="width:78px"><col style="width:80px">
         </colgroup>
         <thead><tr>
-          <th>재료 선택</th><th>단위</th><th class="r">재료총량</th><th class="r">재료가격(원)</th>
+          <th>재료 선택</th><th class="r">재료총량</th><th>단위</th><th class="r">재료가격(원)</th>
           <th class="r">사용량</th><th class="r">단위당(원)</th><th class="r">소계(원)</th><th></th>
         </tr></thead>
         <tbody>${rows}</tbody>
@@ -321,7 +349,7 @@ function selectIngr(itemId, rowId, ingrIdStr) {
   if(!row) return;
   const ingrId=ingrIdStr?parseInt(ingrIdStr):null;
   row.ingrId=ingrId;
-  if(ingrId) {
+  if(ingrId){
     const ing=ingr.list.find(i=>i.id===ingrId);
     if(ing){ row.unit=ing.unit||'g'; row.totalQty=ing.totalQty; row.totalPrice=ing.totalPrice; }
   }
@@ -336,7 +364,7 @@ function itemTotal(item) {
   },0);
 }
 
-/* ── DOM 패치 (포커스 유지) ── */
+/* ── DOM 패치 ── */
 function updR(itemId, rowId, field, val) {
   const item=getItem(itemId), row=item.recipe.find(r=>r.id===rowId);
   if(!row) return;
@@ -347,7 +375,6 @@ function updR(itemId, rowId, field, val) {
   setTxt(`sub-${itemId}-${rowId}`,  fmt(Math.round(unit*uq)));
   refreshTotals(itemId);
 }
-
 function updMargin(itemId,val){ const i=getItem(itemId); i.marginRate=val; save(); refreshTotals(itemId); }
 function updSell(itemId,val)  { const i=getItem(itemId); i.sellPrice=val;  save(); refreshTotals(itemId); }
 
@@ -371,51 +398,45 @@ function refreshTotals(itemId) {
   }
 }
 
-/* ── 구조 변경 (전체 재렌더) ── */
+/* ── 구조 변경 ── */
 function addItem() {
   const s=mstate[curTab], id=s.nid++;
   s.items.push({id, name:'', open:true, marginRate:40, sellPrice:'', recipe:[], nrid:1});
   save(); renderContent();
   const el=document.getElementById(`iname-${id}`); if(el) el.focus();
 }
-
 function removeItem(id) {
   if(!confirm('이 메뉴를 삭제할까요?')) return;
   mstate[curTab].items=mstate[curTab].items.filter(i=>i.id!==id);
   save(); renderContent();
 }
-
-function toggleItem(id) { const i=getItem(id); i.open=!i.open; save(); renderContent(); }
-
+function toggleItem(id){ const i=getItem(id); i.open=!i.open; save(); renderContent(); }
 function addRow(itemId) {
   const item=getItem(itemId), rid=item.nrid++;
   item.recipe.push({id:rid, ingrId:null, unit:'g', totalQty:'', totalPrice:'', useQty:''});
   save(); renderContent();
 }
-
-function removeRow(itemId, rowId) {
+function removeRow(itemId,rowId) {
   const item=getItem(itemId);
   item.recipe=item.recipe.filter(r=>r.id!==rowId);
   save(); renderContent();
 }
-
-function moveRow(itemId, rowId, dir) {
+function moveRow(itemId,rowId,dir) {
   const item=getItem(itemId), idx=item.recipe.findIndex(r=>r.id===rowId), t=idx+dir;
   if(t<0||t>=item.recipe.length) return;
   [item.recipe[idx],item.recipe[t]]=[item.recipe[t],item.recipe[idx]];
   save(); renderContent();
 }
-
-function handleHeaderClick(e,id) {
+function handleHeaderClick(e,id){
   if(['INPUT','BUTTON','SELECT'].includes(e.target.tagName)) return;
   toggleItem(id);
 }
 
 /* ── 유틸 ── */
-function getItem(id) { return mstate[curTab].items.find(i=>i.id===id); }
-function setTxt(id,v) { const el=document.getElementById(id); if(el) el.textContent=v; }
-function fmt(n) { return Math.round(n).toLocaleString('ko-KR'); }
-function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;'); }
+function getItem(id){ return mstate[curTab].items.find(i=>i.id===id); }
+function setTxt(id,v){ const el=document.getElementById(id); if(el) el.textContent=v; }
+function fmt(n){ return Math.round(n).toLocaleString('ko-KR'); }
+function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;'); }
 
 load();
 renderAll();
