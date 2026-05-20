@@ -22,7 +22,8 @@ h1{font-size:18px;font-weight:500;margin-bottom:1.25rem}
 .tab.active{color:#185FA5;border-bottom-color:#185FA5;font-weight:500}
 .sep{width:1px;background:#e8e6e0;margin:4px 4px 0}
 .cat-card{background:#fff;border:1px solid #e8e6e0;border-radius:12px;margin-bottom:.85rem;overflow:hidden}
-.cat-header{display:flex;align-items:center;gap:10px;padding:.75rem 1rem;background:#fafaf8;border-bottom:1px solid #e8e6e0}
+.cat-header{display:flex;align-items:center;gap:10px;padding:.75rem 1rem;background:#fafaf8;border-bottom:1px solid #e8e6e0;cursor:pointer;user-select:none}
+.cat-header.closed{border-bottom:none}
 .cat-name-input{border:none;outline:none;font-size:14px;font-weight:500;font-family:inherit;background:transparent;flex:1;min-width:80px}
 .cat-name-input::placeholder{color:#ccc}
 .cat-body{padding:.75rem 1rem}
@@ -105,7 +106,7 @@ async function init() {
     sb.from('cost_recipe_rows').select('*').order('sort_order')
   ]);
 
-  ingr.cats = (catsR.data||[]).map(c => ({ id:c.id, name:c.name }));
+  ingr.cats = (catsR.data||[]).map(c => ({ id:c.id, name:c.name, open:false }));
   ingr.list = (ingrR.data||[]).map(i => ({
     id:i.id, catId:i.cat_id, name:i.name,
     totalQty:i.total_qty, unit:i.unit, totalPrice:i.total_price
@@ -168,13 +169,7 @@ function renderIngrHTML() {
       </tr>`;
     }).join('') || `<tr><td colspan="6" style="text-align:center;padding:1rem;color:#aaa;font-size:12px">재료를 추가하세요.</td></tr>`;
 
-    return `<div class="cat-card">
-      <div class="cat-header">
-        <input class="cat-name-input" value="${esc(cat.name)}" placeholder="분류명"
-          oninput="renameCat(${cat.id},this.value)">
-        <button class="btn sm danger" onclick="removeCat(${cat.id})">분류 삭제</button>
-      </div>
-      <div class="cat-body">
+    const body = cat.open ? `<div class="cat-body">
         <div class="tbl-wrap"><table>
           <colgroup>
             <col style="width:auto"><col style="width:90px"><col style="width:55px">
@@ -187,7 +182,17 @@ function renderIngrHTML() {
           <tbody>${rows}</tbody>
         </table></div>
         <button class="btn sm" onclick="addIngr(${cat.id})">+ 재료 추가</button>
+      </div>` : '';
+
+    return `<div class="cat-card">
+      <div class="cat-header${cat.open?'':' closed'}" onclick="handleCatClick(event,${cat.id})">
+        <input class="cat-name-input" value="${esc(cat.name)}" placeholder="분류명"
+          onclick="event.stopPropagation()" oninput="renameCat(${cat.id},this.value)">
+        <span style="font-size:11px;color:#aaa;flex-shrink:0">${items.length}개</span>
+        <button class="toggle-btn" onclick="event.stopPropagation();toggleCat(${cat.id})">${cat.open?'▲':'▼'}</button>
+        <button class="btn sm danger" onclick="event.stopPropagation();removeCat(${cat.id})">분류 삭제</button>
       </div>
+      ${body}
     </div>`;
   }).join('');
 
@@ -202,7 +207,7 @@ async function addCat() {
   const { data, error } = await sb.from('cost_ingredient_categories')
     .insert({ name:'', sort_order:ingr.cats.length }).select().single();
   if (error) { alert('저장 실패: '+error.message); return; }
-  ingr.cats.push({ id:data.id, name:'' });
+  ingr.cats.push({ id:data.id, name:'', open:true });
   renderContent();
   const inputs=document.querySelectorAll('.cat-name-input');
   if (inputs.length) inputs[inputs.length-1].focus();
@@ -217,6 +222,15 @@ async function removeCat(id) {
   ingr.list = ingr.list.filter(i=>i.catId!==id);
   loading(false);
   renderContent();
+}
+
+function toggleCat(id) {
+  const cat=ingr.cats.find(c=>c.id===id); if(!cat) return;
+  cat.open=!cat.open; renderContent();
+}
+function handleCatClick(e, id) {
+  if (['INPUT','BUTTON'].includes(e.target.tagName)) return;
+  toggleCat(id);
 }
 
 function renameCat(id, name) {
