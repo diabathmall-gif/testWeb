@@ -91,9 +91,27 @@ MENU_CATS.forEach(c => { mstate[c] = { items:[] }; });
 let curTab = '재료 관리';
 const dbt = {}; // debounce timers
 
-function debounce(key, fn, ms=800) {
+function debounce(key, fn, ms=400) {
   clearTimeout(dbt[key]);
-  dbt[key] = setTimeout(fn, ms);
+  dbt[key] = setTimeout(async () => {
+    const { error } = await fn();
+    if (error) { console.error(key, error); toast('저장 실패: ' + error.message, true); }
+  }, ms);
+}
+
+function toast(msg, isError=false) {
+  let el = document.getElementById('saveToast');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'saveToast';
+    el.style.cssText = 'position:fixed;bottom:1.25rem;right:1.25rem;padding:8px 16px;border-radius:8px;font-size:13px;color:#fff;z-index:9999;transition:opacity .3s';
+    document.body.appendChild(el);
+  }
+  el.textContent = msg;
+  el.style.background = isError ? '#A32D2D' : '#2d6a2d';
+  el.style.opacity = '1';
+  clearTimeout(el._t);
+  el._t = setTimeout(() => { el.style.opacity = '0'; }, 2000);
 }
 
 /* ── 초기 로드 ── */
@@ -206,7 +224,7 @@ function renderIngrHTML() {
 async function addCat() {
   const { data, error } = await sb.from('cost_ingredient_categories')
     .insert({ name:'', sort_order:ingr.cats.length }).select().single();
-  if (error) { alert('저장 실패: '+error.message); return; }
+  if (error) { toast('저장 실패: '+error.message, true); console.error(error); return; }
   ingr.cats.push({ id:data.id, name:'', open:true });
   renderContent();
   const inputs=document.querySelectorAll('.cat-name-input');
@@ -243,7 +261,7 @@ function renameCat(id, name) {
 async function addIngr(catId) {
   const { data, error } = await sb.from('cost_ingredients')
     .insert({ cat_id:catId, name:'', total_qty:0, unit:'g', total_price:0 }).select().single();
-  if (error) { alert('저장 실패: '+error.message); return; }
+  if (error) { toast('저장 실패: '+error.message, true); console.error(error); return; }
   ingr.list.push({ id:data.id, catId, name:'', totalQty:'', unit:'g', totalPrice:'' });
   renderContent();
   const trs=document.querySelectorAll('[id^="ing-"]');
@@ -397,7 +415,7 @@ async function addItem() {
   const s=mstate[curTab];
   const { data, error } = await sb.from('cost_menus')
     .insert({ category:curTab, name:'', margin_rate:40, sort_order:s.items.length }).select().single();
-  if (error) { alert('저장 실패: '+error.message); return; }
+  if (error) { toast('저장 실패: '+error.message, true); console.error(error); return; }
   s.items.push({ id:data.id, name:'', open:true, marginRate:40, sellPrice:'', recipe:[] });
   renderContent();
   const el=document.getElementById(`iname-${data.id}`); if(el) el.focus();
@@ -438,7 +456,7 @@ async function addRow(itemId) {
   const { data, error } = await sb.from('cost_recipe_rows')
     .insert({ menu_id:itemId, ingr_id:null, unit:'g', total_qty:0, total_price:0, use_qty:0, sort_order:item.recipe.length })
     .select().single();
-  if (error) { alert('저장 실패: '+error.message); return; }
+  if (error) { toast('저장 실패: '+error.message, true); console.error(error); return; }
   item.recipe.push({ id:data.id, ingrId:null, unit:'g', totalQty:'', totalPrice:'', useQty:'' });
   renderContent();
 }
