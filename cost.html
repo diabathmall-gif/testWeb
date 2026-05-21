@@ -22,6 +22,8 @@ h1{font-size:18px;font-weight:500;margin-bottom:1.25rem}
 .tab.active{color:#185FA5;border-bottom-color:#185FA5;font-weight:500}
 .tab.sm-tab{color:#9B6B2F}
 .tab.sm-tab.active{color:#9B6B2F;border-bottom-color:#9B6B2F}
+.tab.oh-tab{color:#2d7d6e}
+.tab.oh-tab.active{color:#2d7d6e;border-bottom-color:#2d7d6e}
 .sep{width:1px;background:#e8e6e0;margin:4px 4px 0}
 .cat-card{background:#fff;border:1px solid #e8e6e0;border-radius:12px;margin-bottom:.85rem;overflow:hidden}
 .cat-header{display:flex;align-items:center;gap:10px;padding:.75rem 1rem;background:#fafaf8;border-bottom:1px solid #e8e6e0;cursor:pointer;user-select:none}
@@ -92,6 +94,7 @@ const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 const MENU_CATS = ['생두','티','주스','빵','디저트'];
 let ingr = { list:[], cats:[] };
 let selfmade = { items:[] };
+let overhead = { items:[], monthlySales:0 };
 let mstate = {};
 MENU_CATS.forEach(c => { mstate[c] = { items:[] }; });
 let curTab = '재료 관리';
@@ -120,18 +123,19 @@ async function dbRun(label, fn) {
 /* ── 초기 로드 ── */
 async function init() {
   loading(true);
-  const [catsR, ingrR, menusR, rowsR, smR, smRowsR] = await Promise.all([
+  const [catsR, ingrR, menusR, rowsR, smR, smRowsR, ohR] = await Promise.all([
     sb.from('cost_ingredient_categories').select('*').order('sort_order'),
     sb.from('cost_ingredients').select('*').order('id'),
     sb.from('cost_menus').select('*').order('sort_order'),
     sb.from('cost_recipe_rows').select('*').order('sort_order'),
     sb.from('cost_selfmade').select('*').order('sort_order'),
-    sb.from('cost_selfmade_rows').select('*').order('sort_order')
+    sb.from('cost_selfmade_rows').select('*').order('sort_order'),
+    sb.from('cost_overhead').select('*').order('sort_order')
   ]);
 
-  if (catsR.error||ingrR.error||menusR.error||rowsR.error||smR.error||smRowsR.error) {
+  if (catsR.error||ingrR.error||menusR.error||rowsR.error||smR.error||smRowsR.error||ohR.error) {
     toast('데이터 로드 실패', true);
-    console.error(catsR.error, ingrR.error, menusR.error, rowsR.error, smR.error, smRowsR.error);
+    console.error(catsR.error, ingrR.error, menusR.error, rowsR.error, smR.error, smRowsR.error, ohR.error);
   }
 
   ingr.cats = (catsR.data||[]).map(c => ({ id:c.id, name:c.name, open:false }));
@@ -147,6 +151,11 @@ async function init() {
       totalQty:r.total_qty, totalPrice:r.total_price, useQty:r.use_qty
     }))
   }));
+
+  overhead.items = (ohR.data||[]).map(i => ({
+    id:i.id, name:i.name, type:i.type, amount:i.amount
+  }));
+  overhead.monthlySales = parseInt(localStorage.getItem('overhead_monthlySales'))||0;
 
   MENU_CATS.forEach(c => { mstate[c] = { items:[] }; });
   (menusR.data||[]).forEach(m => {
@@ -174,6 +183,7 @@ function renderAll() { renderTabs(); renderContent(); }
 function renderTabs() {
   let html = `<button class="tab${curTab==='재료 관리'?' active':''}" onclick="switchTab('재료 관리')">재료 관리</button>`;
   html += `<button class="tab sm-tab${curTab==='자체 제조품'?' active':''}" onclick="switchTab('자체 제조품')">자체 제조품</button>`;
+  html += `<button class="tab oh-tab${curTab==='간접비'?' active':''}" onclick="switchTab('간접비')">간접비</button>`;
   html += `<div class="sep"></div>`;
   html += MENU_CATS.map(c=>`<button class="tab${c===curTab?' active':''}" onclick="switchTab('${c}')">${c}</button>`).join('');
   document.getElementById('tabBar').innerHTML = html;
@@ -182,6 +192,7 @@ function switchTab(t) { curTab=t; renderAll(); }
 function renderContent() {
   const c = curTab==='재료 관리' ? renderIngrHTML()
           : curTab==='자체 제조품' ? renderSelfmadeHTML()
+          : curTab==='간접비' ? renderOverheadHTML()
           : renderMenuHTML(curTab);
   document.getElementById('mainContent').innerHTML = c;
 }
@@ -526,6 +537,134 @@ async function saveSmRow(smId, rowId) {
     unit:row.unit, total_qty:parseFloat(row.totalQty)||0,
     total_price:parseFloat(row.totalPrice)||0, use_qty:parseFloat(row.useQty)||0
   }).eq('id',rowId));
+}
+
+/* ══════════════ 간접비 관리 ══════════════ */
+function renderOverheadHTML() {
+  const fixed = overhead.items.filter(i=>i.type==='고정비');
+  const variable = overhead.items.filter(i=>i.type==='변동비');
+  const fixedTotal = fixed.reduce((s,i)=>s+(parseFloat(i.amount)||0),0);
+  const varTotal = variable.reduce((s,i)=>s+(parseFloat(i.amount)||0),0);
+  const total = fixedTotal + varTotal;
+  const ms = parseInt(overhead.monthlySales)||0;
+  const perUnit = ms ? Math.round(total/ms) : 0;
+
+  const renderSection = (items, type) => {
+    const rows = items.map(item=>`
+      <div style="display:flex;gap:8px;align-items:center;margin-bottom:.5rem">
+        <input style="flex:1;height:34px;padding:0 10px;border:1px solid #e8e6e0;border-radius:7px;font-size:13px;font-family:inherit"
+          value="${esc(item.name)}" placeholder="항목명 (예: 임대료)"
+          oninput="updOverhead(${item.id},'name',this.value)"
+          onblur="saveOverhead(${item.id})">
+        <input type="number" min="0"
+          style="width:130px;height:34px;padding:0 10px;border:1px solid #e8e6e0;border-radius:7px;font-size:13px;text-align:right;font-family:inherit"
+          value="${item.amount}" placeholder="0"
+          oninput="updOverhead(${item.id},'amount',this.value)"
+          onblur="saveOverhead(${item.id})">
+        <span style="font-size:13px;color:#888;white-space:nowrap">원 / 월</span>
+        <button class="btn sm danger" onclick="removeOverhead(${item.id})" style="padding:0 8px">✕</button>
+      </div>`).join('') || `<div style="color:#ccc;font-size:13px;padding:.4rem 0">항목이 없습니다.</div>`;
+
+    const sub = items.reduce((s,i)=>s+(parseFloat(i.amount)||0),0);
+    const subId = type==='고정비' ? 'ohFixedSub' : 'ohVarSub';
+    return `<div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.65rem">
+        <span style="font-size:13px;font-weight:600;color:#333">${type}</span>
+        <button class="btn sm" onclick="addOverhead('${type}')">+ 추가</button>
+      </div>
+      ${rows}
+      <div style="text-align:right;font-size:12px;color:#888;margin-top:.35rem">
+        소계: <strong id="${subId}">${fmt(sub)}</strong>원
+      </div>
+    </div>`;
+  };
+
+  return `<div style="max-width:640px">
+    <div style="background:#fff;border:1px solid #e8e6e0;border-radius:12px;padding:1.25rem;margin-bottom:.85rem">
+      ${renderSection(fixed,'고정비')}
+      <div style="height:1px;background:#f0eeea;margin:1rem 0"></div>
+      ${renderSection(variable,'변동비')}
+    </div>
+    <div style="background:#fff;border:1px solid #e8e6e0;border-radius:12px;padding:1.25rem">
+      <div style="font-size:13px;font-weight:600;color:#333;margin-bottom:.85rem">요약</div>
+      <div style="display:flex;flex-direction:column;gap:.45rem;font-size:13px;margin-bottom:1rem">
+        <div style="display:flex;justify-content:space-between">
+          <span style="color:#888">고정비 합계</span>
+          <span id="ohFixedTotal">${fmt(fixedTotal)}원</span>
+        </div>
+        <div style="display:flex;justify-content:space-between">
+          <span style="color:#888">변동비 합계</span>
+          <span id="ohVarTotal">${fmt(varTotal)}원</span>
+        </div>
+        <div style="height:1px;background:#f0eeea;margin:.2rem 0"></div>
+        <div style="display:flex;justify-content:space-between;font-weight:600;font-size:14px">
+          <span>월 총 간접비</span>
+          <span style="color:#2d7d6e" id="ohTotal">${fmt(total)}원</span>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;padding:.85rem 1rem;background:#f0faf8;border-radius:10px;border:1px solid #b8ddd8">
+        <span style="font-size:12px;color:#555;white-space:nowrap">월 예상 판매량</span>
+        <input type="number" min="0" value="${overhead.monthlySales}" placeholder="0"
+          style="width:90px;height:30px;padding:0 8px;border:1px solid #b8ddd8;border-radius:7px;font-size:13px;text-align:right;font-family:inherit;background:#fff"
+          oninput="updMonthlySales(this.value)">
+        <span style="font-size:12px;color:#555">잔</span>
+        <div style="margin-left:auto;text-align:right">
+          <div style="font-size:11px;color:#888">잔당 간접비</div>
+          <div style="font-size:18px;font-weight:700;color:#2d7d6e" id="ohPerUnit">${fmt(perUnit)}원</div>
+        </div>
+      </div>
+      <div style="margin-top:.65rem;font-size:11px;color:#aaa">※ 간접비는 현재 참고용입니다. 메뉴 원가에 자동 반영되지 않습니다.</div>
+    </div>
+  </div>`;
+}
+
+function refreshOverheadSummary() {
+  const fixed = overhead.items.filter(i=>i.type==='고정비');
+  const variable = overhead.items.filter(i=>i.type==='변동비');
+  const fixedTotal = fixed.reduce((s,i)=>s+(parseFloat(i.amount)||0),0);
+  const varTotal = variable.reduce((s,i)=>s+(parseFloat(i.amount)||0),0);
+  const total = fixedTotal+varTotal;
+  const ms = parseInt(overhead.monthlySales)||0;
+  const perUnit = ms ? Math.round(total/ms) : 0;
+  setTxt('ohFixedSub',   fmt(fixedTotal));
+  setTxt('ohVarSub',     fmt(varTotal));
+  setTxt('ohFixedTotal', fmt(fixedTotal)+'원');
+  setTxt('ohVarTotal',   fmt(varTotal)+'원');
+  setTxt('ohTotal',      fmt(total)+'원');
+  setTxt('ohPerUnit',    fmt(perUnit)+'원');
+}
+
+async function addOverhead(type) {
+  const { data, error } = await sb.from('cost_overhead')
+    .insert({ name:'', type, amount:0, sort_order:overhead.items.filter(i=>i.type===type).length }).select().single();
+  if (error) { toast('저장 실패: '+error.message, true); return; }
+  overhead.items.push({ id:data.id, name:'', type, amount:'' });
+  renderContent();
+}
+
+async function removeOverhead(id) {
+  await sb.from('cost_overhead').delete().eq('id',id);
+  overhead.items=overhead.items.filter(i=>i.id!==id);
+  renderContent();
+}
+
+function updOverhead(id, field, val) {
+  const item=overhead.items.find(i=>i.id===id); if(!item) return;
+  item[field]=val;
+  if (field==='amount') refreshOverheadSummary();
+}
+
+async function saveOverhead(id) {
+  const item=overhead.items.find(i=>i.id===id); if(!item) return;
+  await dbRun('saveOverhead', ()=>sb.from('cost_overhead').update({
+    name:item.name, amount:parseFloat(item.amount)||0
+  }).eq('id',id));
+}
+
+function updMonthlySales(val) {
+  overhead.monthlySales=val;
+  localStorage.setItem('overhead_monthlySales', val);
+  refreshOverheadSummary();
 }
 
 /* ══════════════ 메뉴 탭 ══════════════ */
