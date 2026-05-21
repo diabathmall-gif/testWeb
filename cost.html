@@ -75,12 +75,18 @@ select.ci{cursor:pointer}
 .empty-cat{text-align:center;padding:3rem;color:#aaa;font-size:13px}
 .sm-cost-box{margin-top:.75rem;padding:.65rem .85rem;background:#fdf8f0;border-radius:10px;border:1px solid #e8d9bb;font-size:12px;color:#9B6B2F}
 .loading-overlay{position:fixed;inset:0;background:rgba(255,255,255,.85);display:flex;align-items:center;justify-content:center;z-index:999;font-size:14px;color:#888;gap:8px}
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;z-index:1000;padding:1rem}
+.modal-box{background:#fff;border-radius:14px;width:100%;max-width:760px;max-height:85vh;display:flex;flex-direction:column;overflow:hidden}
+.modal-hd{display:flex;align-items:center;justify-content:space-between;padding:.85rem 1.1rem;border-bottom:1px solid #e8e6e0;flex-shrink:0}
+.modal-bd{padding:1rem 1.1rem;overflow-y:auto}
+.log-notice{font-size:11px;color:#aaa;margin-top:.5rem}
 @media(max-width:640px){.margin-wrap{grid-template-columns:1fr}.header-info{display:none}}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
 <div id="loadingOverlay" class="loading-overlay">불러오는 중...</div>
+<div id="modalContainer"></div>
 <div class="wrap">
   <h1>원가계산기</h1>
   <div class="tab-bar" id="tabBar"></div>
@@ -95,6 +101,8 @@ const MENU_CATS = ['생두','티','주스','빵','디저트'];
 let ingr = { list:[], cats:[] };
 let selfmade = { items:[] };
 let overhead = { items:[], monthlySales:0 };
+let purchaseLogs = [];
+let logModal = { ingrId:null };
 let mstate = {};
 MENU_CATS.forEach(c => { mstate[c] = { items:[] }; });
 let curTab = '재료 관리';
@@ -123,19 +131,20 @@ async function dbRun(label, fn) {
 /* ── 초기 로드 ── */
 async function init() {
   loading(true);
-  const [catsR, ingrR, menusR, rowsR, smR, smRowsR, ohR] = await Promise.all([
+  const [catsR, ingrR, menusR, rowsR, smR, smRowsR, ohR, logR] = await Promise.all([
     sb.from('cost_ingredient_categories').select('*').order('sort_order'),
     sb.from('cost_ingredients').select('*').order('id'),
     sb.from('cost_menus').select('*').order('sort_order'),
     sb.from('cost_recipe_rows').select('*').order('sort_order'),
     sb.from('cost_selfmade').select('*').order('sort_order'),
     sb.from('cost_selfmade_rows').select('*').order('sort_order'),
-    sb.from('cost_overhead').select('*').order('sort_order')
+    sb.from('cost_overhead').select('*').order('sort_order'),
+    sb.from('cost_purchase_log').select('*').order('purchased_at', {ascending:false})
   ]);
 
-  if (catsR.error||ingrR.error||menusR.error||rowsR.error||smR.error||smRowsR.error||ohR.error) {
+  if (catsR.error||ingrR.error||menusR.error||rowsR.error||smR.error||smRowsR.error||ohR.error||logR.error) {
     toast('데이터 로드 실패', true);
-    console.error(catsR.error, ingrR.error, menusR.error, rowsR.error, smR.error, smRowsR.error, ohR.error);
+    console.error(catsR.error, ingrR.error, menusR.error, rowsR.error, smR.error, smRowsR.error, ohR.error, logR.error);
   }
 
   ingr.cats = (catsR.data||[]).map(c => ({ id:c.id, name:c.name, open:false }));
@@ -150,6 +159,11 @@ async function init() {
       id:r.id, ingrId:r.ingr_id, unit:r.unit,
       totalQty:r.total_qty, totalPrice:r.total_price, useQty:r.use_qty
     }))
+  }));
+
+  purchaseLogs = (logR.data||[]).map(l => ({
+    id:l.id, ingrId:l.ingr_id, purchasedAt:l.purchased_at,
+    vendor:l.vendor, totalQty:l.total_qty, unit:l.unit, totalPrice:l.total_price
   }));
 
   overhead.items = (ohR.data||[]).map(i => ({
@@ -217,8 +231,9 @@ function renderIngrHTML() {
           oninput="updIngr(${ing.id},'totalPrice',this.value)"
           onblur="saveIngr(${ing.id})"></td>
         <td class="calc-cell" id="iup-${ing.id}">${tq?(tp/tq).toFixed(3):'0.000'}</td>
-        <td style="text-align:center">
-          <button class="btn sm danger" onclick="removeIngr(${ing.id})" style="padding:0 6px">✕</button>
+        <td style="text-align:center;white-space:nowrap">
+          <button class="btn sm" onclick="openLogModal(${ing.id})" style="padding:0 8px;color:#185FA5">이력</button>
+          <button class="btn sm danger" onclick="removeIngr(${ing.id})" style="padding:0 6px;margin-left:2px">✕</button>
         </td>
       </tr>`;
     }).join('') || `<tr><td colspan="6" style="text-align:center;padding:1rem;color:#aaa;font-size:12px">재료를 추가하세요.</td></tr>`;
@@ -227,7 +242,7 @@ function renderIngrHTML() {
       <div class="tbl-wrap"><table>
         <colgroup>
           <col style="width:auto"><col style="width:90px"><col style="width:55px">
-          <col style="width:100px"><col style="width:90px"><col style="width:40px">
+          <col style="width:100px"><col style="width:90px"><col style="width:80px">
         </colgroup>
         <thead><tr>
           <th>재료이름</th><th class="r">재료총량</th><th>단위</th>
@@ -329,6 +344,143 @@ async function saveIngr(id) {
     name:ing.name, total_qty:parseFloat(ing.totalQty)||0,
     unit:ing.unit, total_price:parseFloat(ing.totalPrice)||0
   }).eq('id',id));
+}
+
+/* ══════════════ 구매 이력 모달 ══════════════ */
+function openLogModal(ingrId) {
+  logModal.ingrId = ingrId;
+  renderModal();
+}
+function closeLogModal() {
+  logModal.ingrId = null;
+  renderModal();
+}
+function renderModal() {
+  document.getElementById('modalContainer').innerHTML =
+    logModal.ingrId ? renderLogModalHTML() : '';
+}
+
+function renderLogModalHTML() {
+  const ing = ingr.list.find(i=>i.id===logModal.ingrId);
+  if (!ing) return '';
+  const logs = purchaseLogs.filter(l=>l.ingrId===logModal.ingrId)
+    .sort((a,b) => b.purchasedAt!==a.purchasedAt
+      ? b.purchasedAt.localeCompare(a.purchasedAt) : b.id-a.id);
+  const latestId = logs.length ? logs[0].id : null;
+
+  const rows = logs.map(log => {
+    const tq=parseFloat(log.totalQty)||0, tp=parseFloat(log.totalPrice)||0;
+    const pu = tq?(tp/tq).toFixed(3):'0.000';
+    const isLatest = log.id===latestId;
+    return `<tr style="${isLatest?'background:#f5f9ff':''}">
+      <td><input class="ci" type="date" value="${log.purchasedAt}"
+        oninput="updLog(${log.id},'purchasedAt',this.value)"
+        onblur="saveLog(${log.id})"></td>
+      <td><input class="ci" value="${esc(log.vendor)}" placeholder="구매처"
+        oninput="updLog(${log.id},'vendor',this.value)"
+        onblur="saveLog(${log.id})"></td>
+      <td><input class="ci r" type="number" min="0" value="${log.totalQty}" placeholder="0"
+        oninput="updLog(${log.id},'totalQty',this.value)"
+        onblur="saveLog(${log.id})"></td>
+      <td><input class="ci" value="${esc(log.unit||'g')}" placeholder="g"
+        oninput="updLog(${log.id},'unit',this.value)"
+        onblur="saveLog(${log.id})"></td>
+      <td><input class="ci r" type="number" min="0" value="${log.totalPrice}" placeholder="0"
+        oninput="updLog(${log.id},'totalPrice',this.value)"
+        onblur="saveLog(${log.id})"></td>
+      <td class="calc-cell" id="lpu-${log.id}">${pu}</td>
+      <td style="text-align:center">
+        <button class="btn sm danger" onclick="removeLog(${log.id})" style="padding:0 6px">✕</button>
+      </td>
+    </tr>`;
+  }).join('') || `<tr><td colspan="7" style="text-align:center;padding:1.5rem;color:#aaa;font-size:12px">구매 기록이 없습니다.</td></tr>`;
+
+  return `<div class="modal-overlay" onclick="closeLogModal()">
+    <div class="modal-box" onclick="event.stopPropagation()">
+      <div class="modal-hd">
+        <span style="font-size:15px;font-weight:600">${esc(ing.name||'(이름 없음)')} 구매 이력</span>
+        <button class="btn sm" onclick="closeLogModal()">닫기</button>
+      </div>
+      <div class="modal-bd">
+        <div class="tbl-wrap">
+          <table>
+            <colgroup>
+              <col style="width:115px"><col style="width:auto"><col style="width:85px">
+              <col style="width:50px"><col style="width:110px"><col style="width:85px"><col style="width:40px">
+            </colgroup>
+            <thead><tr>
+              <th>날짜</th><th>구매처</th><th class="r">재료총량</th>
+              <th>단위</th><th class="r">가격(원)</th><th class="r">단위당(원)</th><th></th>
+            </tr></thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </div>
+        <button class="btn sm primary" onclick="addLog()" style="margin-top:.75rem">+ 구매 추가</button>
+        <div class="log-notice">※ 가장 최근 구매 기록(파란 행)이 현재 재료 가격에 자동 반영됩니다.</div>
+      </div>
+    </div>
+  </div>`;
+}
+
+async function addLog() {
+  const ing = ingr.list.find(i=>i.id===logModal.ingrId); if (!ing) return;
+  const today = new Date().toISOString().split('T')[0];
+  const { data, error } = await sb.from('cost_purchase_log').insert({
+    ingr_id: logModal.ingrId, purchased_at: today, vendor:'',
+    total_qty: parseFloat(ing.totalQty)||0,
+    unit: ing.unit||'g',
+    total_price: parseFloat(ing.totalPrice)||0
+  }).select().single();
+  if (error) { toast('저장 실패: '+error.message, true); return; }
+  purchaseLogs.push({
+    id:data.id, ingrId:data.ingr_id, purchasedAt:data.purchased_at,
+    vendor:data.vendor, totalQty:data.total_qty, unit:data.unit, totalPrice:data.total_price
+  });
+  renderModal();
+}
+
+async function removeLog(id) {
+  await sb.from('cost_purchase_log').delete().eq('id',id);
+  purchaseLogs = purchaseLogs.filter(l=>l.id!==id);
+  const ingrId = logModal.ingrId;
+  renderModal();
+  await syncIngrFromLatestLog(ingrId);
+}
+
+function updLog(id, field, val) {
+  const log = purchaseLogs.find(l=>l.id===id); if (!log) return;
+  log[field] = val;
+  if (field==='totalQty'||field==='totalPrice') {
+    const tq=parseFloat(log.totalQty)||0, tp=parseFloat(log.totalPrice)||0;
+    setTxt(`lpu-${id}`, tq?(tp/tq).toFixed(3):'0.000');
+  }
+}
+
+async function saveLog(id) {
+  const log = purchaseLogs.find(l=>l.id===id); if (!log) return;
+  await dbRun('saveLog', ()=>sb.from('cost_purchase_log').update({
+    purchased_at: log.purchasedAt, vendor: log.vendor,
+    total_qty: parseFloat(log.totalQty)||0, unit: log.unit,
+    total_price: parseFloat(log.totalPrice)||0
+  }).eq('id',id));
+  await syncIngrFromLatestLog(log.ingrId);
+}
+
+async function syncIngrFromLatestLog(ingrId) {
+  const logs = purchaseLogs.filter(l=>l.ingrId===ingrId);
+  if (!logs.length) return;
+  const latest = [...logs].sort((a,b) =>
+    b.purchasedAt!==a.purchasedAt ? b.purchasedAt.localeCompare(a.purchasedAt) : b.id-a.id
+  )[0];
+  const ing = ingr.list.find(i=>i.id===ingrId); if (!ing) return;
+  ing.totalQty  = latest.totalQty;
+  ing.unit      = latest.unit;
+  ing.totalPrice= latest.totalPrice;
+  await dbRun('syncIngr', ()=>sb.from('cost_ingredients').update({
+    total_qty: parseFloat(latest.totalQty)||0,
+    unit: latest.unit,
+    total_price: parseFloat(latest.totalPrice)||0
+  }).eq('id',ingrId));
 }
 
 /* ══════════════ 자체 제조품 ══════════════ */
