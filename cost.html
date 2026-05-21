@@ -20,6 +20,8 @@ h1{font-size:18px;font-weight:500;margin-bottom:1.25rem}
 .tab-bar{display:flex;gap:4px;margin-bottom:1rem;border-bottom:1px solid #e8e6e0;flex-wrap:wrap}
 .tab{padding:7px 16px;font-size:13px;cursor:pointer;border-bottom:2px solid transparent;color:#888;background:none;border-top:none;border-left:none;border-right:none;font-family:inherit}
 .tab.active{color:#185FA5;border-bottom-color:#185FA5;font-weight:500}
+.tab.sm-tab{color:#9B6B2F}
+.tab.sm-tab.active{color:#9B6B2F;border-bottom-color:#9B6B2F}
 .sep{width:1px;background:#e8e6e0;margin:4px 4px 0}
 .cat-card{background:#fff;border:1px solid #e8e6e0;border-radius:12px;margin-bottom:.85rem;overflow:hidden}
 .cat-header{display:flex;align-items:center;gap:10px;padding:.75rem 1rem;background:#fafaf8;border-bottom:1px solid #e8e6e0;cursor:pointer;user-select:none}
@@ -40,6 +42,7 @@ tfoot td{border-top:2px solid #e8e6e0;border-bottom:none;font-weight:600;backgro
 .ci.r{text-align:right}
 select.ci{cursor:pointer}
 .calc-cell{text-align:right;color:#888;font-size:12px;padding-right:10px}
+.ro-cell{text-align:right;color:#555;font-size:12px;padding-right:10px;background:#fafaf8}
 .menu-item{border:1px solid #e8e6e0;border-radius:12px;background:#fff;margin-bottom:.75rem;overflow:hidden}
 .menu-header{display:flex;align-items:center;gap:10px;padding:.75rem 1rem;cursor:pointer;user-select:none}
 .menu-header:hover{background:#fafaf8}
@@ -49,6 +52,7 @@ select.ci{cursor:pointer}
 .hi-label{font-size:11px;color:#aaa}
 .hi-val{font-size:13px;font-weight:600;color:#185FA5}
 .hi-val.gray{color:#888}
+.hi-val.amber{color:#9B6B2F}
 .toggle-btn{font-size:12px;color:#aaa;padding:2px 6px;border:none;background:none;cursor:pointer}
 .recipe-body{border-top:1px solid #e8e6e0;padding:1rem}
 .margin-wrap{display:grid;grid-template-columns:1fr 1fr;gap:.75rem;margin-top:.75rem}
@@ -67,6 +71,7 @@ select.ci{cursor:pointer}
 .mb-input-row span{font-size:12px;color:#888}
 .divider{height:1px;background:#e8e6e0;margin:.5rem 0}
 .empty-cat{text-align:center;padding:3rem;color:#aaa;font-size:13px}
+.sm-cost-box{margin-top:.75rem;padding:.65rem .85rem;background:#fdf8f0;border-radius:10px;border:1px solid #e8d9bb;font-size:12px;color:#9B6B2F}
 .loading-overlay{position:fixed;inset:0;background:rgba(255,255,255,.85);display:flex;align-items:center;justify-content:center;z-index:999;font-size:14px;color:#888;gap:8px}
 @media(max-width:640px){.margin-wrap{grid-template-columns:1fr}.header-info{display:none}}
 </style>
@@ -86,19 +91,12 @@ const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 const MENU_CATS = ['생두','티','주스','빵','디저트'];
 let ingr = { list:[], cats:[] };
+let selfmade = { items:[] };
 let mstate = {};
 MENU_CATS.forEach(c => { mstate[c] = { items:[] }; });
 let curTab = '재료 관리';
-const dbt = {}; // debounce timers
 
-function debounce(key, fn, ms=400) {
-  clearTimeout(dbt[key]);
-  dbt[key] = setTimeout(async () => {
-    const { error } = await fn();
-    if (error) { console.error(key, error); toast('저장 실패: ' + error.message, true); }
-  }, ms);
-}
-
+/* ── 토스트 ── */
 function toast(msg, isError=false) {
   let el = document.getElementById('saveToast');
   if (!el) {
@@ -114,15 +112,27 @@ function toast(msg, isError=false) {
   el._t = setTimeout(() => { el.style.opacity = '0'; }, 2000);
 }
 
+async function dbRun(label, fn) {
+  const { error } = await fn();
+  if (error) { toast('저장 실패: ' + error.message, true); console.error(label, error); }
+}
+
 /* ── 초기 로드 ── */
 async function init() {
   loading(true);
-  const [catsR, ingrR, menusR, rowsR] = await Promise.all([
+  const [catsR, ingrR, menusR, rowsR, smR, smRowsR] = await Promise.all([
     sb.from('cost_ingredient_categories').select('*').order('sort_order'),
     sb.from('cost_ingredients').select('*').order('id'),
     sb.from('cost_menus').select('*').order('sort_order'),
-    sb.from('cost_recipe_rows').select('*').order('sort_order')
+    sb.from('cost_recipe_rows').select('*').order('sort_order'),
+    sb.from('cost_selfmade').select('*').order('sort_order'),
+    sb.from('cost_selfmade_rows').select('*').order('sort_order')
   ]);
+
+  if (catsR.error||ingrR.error||menusR.error||rowsR.error||smR.error||smRowsR.error) {
+    toast('데이터 로드 실패', true);
+    console.error(catsR.error, ingrR.error, menusR.error, rowsR.error, smR.error, smRowsR.error);
+  }
 
   ingr.cats = (catsR.data||[]).map(c => ({ id:c.id, name:c.name, open:false }));
   ingr.list = (ingrR.data||[]).map(i => ({
@@ -130,11 +140,19 @@ async function init() {
     totalQty:i.total_qty, unit:i.unit, totalPrice:i.total_price
   }));
 
+  selfmade.items = (smR.data||[]).map(s => ({
+    id:s.id, name:s.name, yieldQty:s.yield_qty, unit:s.unit, open:false,
+    recipe:(smRowsR.data||[]).filter(r=>r.selfmade_id===s.id).map(r=>({
+      id:r.id, ingrId:r.ingr_id, unit:r.unit,
+      totalQty:r.total_qty, totalPrice:r.total_price, useQty:r.use_qty
+    }))
+  }));
+
   MENU_CATS.forEach(c => { mstate[c] = { items:[] }; });
   (menusR.data||[]).forEach(m => {
     if (!mstate[m.category]) return;
     const rows = (rowsR.data||[]).filter(r=>r.menu_id===m.id).map(r=>({
-      id:r.id, ingrId:r.ingr_id, unit:r.unit,
+      id:r.id, ingrId:r.ingr_id, selfmadeId:r.selfmade_id, unit:r.unit,
       totalQty:r.total_qty, totalPrice:r.total_price, useQty:r.use_qty
     }));
     mstate[m.category].items.push({
@@ -155,14 +173,17 @@ function loading(v) {
 function renderAll() { renderTabs(); renderContent(); }
 function renderTabs() {
   let html = `<button class="tab${curTab==='재료 관리'?' active':''}" onclick="switchTab('재료 관리')">재료 관리</button>`;
+  html += `<button class="tab sm-tab${curTab==='자체 제조품'?' active':''}" onclick="switchTab('자체 제조품')">자체 제조품</button>`;
   html += `<div class="sep"></div>`;
   html += MENU_CATS.map(c=>`<button class="tab${c===curTab?' active':''}" onclick="switchTab('${c}')">${c}</button>`).join('');
   document.getElementById('tabBar').innerHTML = html;
 }
 function switchTab(t) { curTab=t; renderAll(); }
 function renderContent() {
-  document.getElementById('mainContent').innerHTML =
-    curTab==='재료 관리' ? renderIngrHTML() : renderMenuHTML(curTab);
+  const c = curTab==='재료 관리' ? renderIngrHTML()
+          : curTab==='자체 제조품' ? renderSelfmadeHTML()
+          : renderMenuHTML(curTab);
+  document.getElementById('mainContent').innerHTML = c;
 }
 
 /* ══════════════ 재료 관리 ══════════════ */
@@ -173,13 +194,17 @@ function renderIngrHTML() {
       const tq=parseFloat(ing.totalQty)||0, tp=parseFloat(ing.totalPrice)||0;
       return `<tr id="ing-${ing.id}">
         <td><input class="ci" value="${esc(ing.name)}" placeholder="재료명"
-          oninput="updIngr(${ing.id},'name',this.value)"></td>
+          oninput="updIngr(${ing.id},'name',this.value)"
+          onblur="saveIngr(${ing.id})"></td>
         <td><input class="ci r" type="number" min="0" value="${ing.totalQty}" placeholder="0"
-          oninput="updIngr(${ing.id},'totalQty',this.value)"></td>
+          oninput="updIngr(${ing.id},'totalQty',this.value)"
+          onblur="saveIngr(${ing.id})"></td>
         <td><input class="ci" value="${esc(ing.unit||'g')}" placeholder="g"
-          oninput="updIngr(${ing.id},'unit',this.value)"></td>
+          oninput="updIngr(${ing.id},'unit',this.value)"
+          onblur="saveIngr(${ing.id})"></td>
         <td><input class="ci r" type="number" min="0" value="${ing.totalPrice}" placeholder="0"
-          oninput="updIngr(${ing.id},'totalPrice',this.value)"></td>
+          oninput="updIngr(${ing.id},'totalPrice',this.value)"
+          onblur="saveIngr(${ing.id})"></td>
         <td class="calc-cell" id="iup-${ing.id}">${tq?(tp/tq).toFixed(3):'0.000'}</td>
         <td style="text-align:center">
           <button class="btn sm danger" onclick="removeIngr(${ing.id})" style="padding:0 6px">✕</button>
@@ -188,24 +213,26 @@ function renderIngrHTML() {
     }).join('') || `<tr><td colspan="6" style="text-align:center;padding:1rem;color:#aaa;font-size:12px">재료를 추가하세요.</td></tr>`;
 
     const body = cat.open ? `<div class="cat-body">
-        <div class="tbl-wrap"><table>
-          <colgroup>
-            <col style="width:auto"><col style="width:90px"><col style="width:55px">
-            <col style="width:100px"><col style="width:90px"><col style="width:40px">
-          </colgroup>
-          <thead><tr>
-            <th>재료이름</th><th class="r">재료총량</th><th>단위</th>
-            <th class="r">재료가격(원)</th><th class="r">단위당(원)</th><th></th>
-          </tr></thead>
-          <tbody>${rows}</tbody>
-        </table></div>
-        <button class="btn sm" onclick="addIngr(${cat.id})">+ 재료 추가</button>
-      </div>` : '';
+      <div class="tbl-wrap"><table>
+        <colgroup>
+          <col style="width:auto"><col style="width:90px"><col style="width:55px">
+          <col style="width:100px"><col style="width:90px"><col style="width:40px">
+        </colgroup>
+        <thead><tr>
+          <th>재료이름</th><th class="r">재료총량</th><th>단위</th>
+          <th class="r">재료가격(원)</th><th class="r">단위당(원)</th><th></th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+      </table></div>
+      <button class="btn sm" onclick="addIngr(${cat.id})">+ 재료 추가</button>
+    </div>` : '';
 
     return `<div class="cat-card">
       <div class="cat-header${cat.open?'':' closed'}" onclick="handleCatClick(event,${cat.id})">
         <input class="cat-name-input" value="${esc(cat.name)}" placeholder="분류명"
-          onclick="event.stopPropagation()" oninput="renameCat(${cat.id},this.value)">
+          onclick="event.stopPropagation()"
+          oninput="renameCat(${cat.id},this.value)"
+          onblur="saveCat(${cat.id})">
         <span style="font-size:11px;color:#aaa;flex-shrink:0">${items.length}개</span>
         <button class="toggle-btn" onclick="event.stopPropagation();toggleCat(${cat.id})">${cat.open?'▲':'▼'}</button>
         <button class="btn sm danger" onclick="event.stopPropagation();removeCat(${cat.id})">분류 삭제</button>
@@ -224,7 +251,7 @@ function renderIngrHTML() {
 async function addCat() {
   const { data, error } = await sb.from('cost_ingredient_categories')
     .insert({ name:'', sort_order:ingr.cats.length }).select().single();
-  if (error) { toast('저장 실패: '+error.message, true); console.error(error); return; }
+  if (error) { toast('저장 실패: '+error.message, true); return; }
   ingr.cats.push({ id:data.id, name:'', open:true });
   renderContent();
   const inputs=document.querySelectorAll('.cat-name-input');
@@ -232,36 +259,39 @@ async function addCat() {
 }
 
 async function removeCat(id) {
-  const hasItems = ingr.list.some(i=>i.catId===id);
+  const hasItems=ingr.list.some(i=>i.catId===id);
   if (hasItems && !confirm('이 분류의 재료도 모두 삭제됩니다. 계속할까요?')) return;
   loading(true);
   await sb.from('cost_ingredient_categories').delete().eq('id',id);
-  ingr.cats = ingr.cats.filter(c=>c.id!==id);
-  ingr.list = ingr.list.filter(i=>i.catId!==id);
+  ingr.cats=ingr.cats.filter(c=>c.id!==id);
+  ingr.list=ingr.list.filter(i=>i.catId!==id);
   loading(false);
   renderContent();
+}
+
+function renameCat(id, name) {
+  const cat=ingr.cats.find(c=>c.id===id); if(!cat) return;
+  cat.name=name;
+}
+async function saveCat(id) {
+  const cat=ingr.cats.find(c=>c.id===id); if(!cat) return;
+  await dbRun('saveCat', ()=>sb.from('cost_ingredient_categories').update({name:cat.name}).eq('id',id));
 }
 
 function toggleCat(id) {
   const cat=ingr.cats.find(c=>c.id===id); if(!cat) return;
   cat.open=!cat.open; renderContent();
 }
-function handleCatClick(e, id) {
+function handleCatClick(e,id) {
   if (['INPUT','BUTTON'].includes(e.target.tagName)) return;
   toggleCat(id);
-}
-
-function renameCat(id, name) {
-  const cat=ingr.cats.find(c=>c.id===id); if(!cat) return;
-  cat.name=name;
-  debounce(`cat-${id}`, ()=>sb.from('cost_ingredient_categories').update({name}).eq('id',id));
 }
 
 /* ── 재료 CRUD ── */
 async function addIngr(catId) {
   const { data, error } = await sb.from('cost_ingredients')
     .insert({ cat_id:catId, name:'', total_qty:0, unit:'g', total_price:0 }).select().single();
-  if (error) { toast('저장 실패: '+error.message, true); console.error(error); return; }
+  if (error) { toast('저장 실패: '+error.message, true); return; }
   ingr.list.push({ id:data.id, catId, name:'', totalQty:'', unit:'g', totalPrice:'' });
   renderContent();
   const trs=document.querySelectorAll('[id^="ing-"]');
@@ -281,10 +311,221 @@ function updIngr(id, field, val) {
     const tq=parseFloat(ing.totalQty)||0, tp=parseFloat(ing.totalPrice)||0;
     setTxt(`iup-${id}`, tq?(tp/tq).toFixed(3):'0.000');
   }
-  debounce(`ingr-${id}`, ()=>sb.from('cost_ingredients').update({
+}
+async function saveIngr(id) {
+  const ing=ingr.list.find(i=>i.id===id); if(!ing) return;
+  await dbRun('saveIngr', ()=>sb.from('cost_ingredients').update({
     name:ing.name, total_qty:parseFloat(ing.totalQty)||0,
     unit:ing.unit, total_price:parseFloat(ing.totalPrice)||0
   }).eq('id',id));
+}
+
+/* ══════════════ 자체 제조품 ══════════════ */
+function selfmadeCost(smId) {
+  const sm=selfmade.items.find(s=>s.id===smId);
+  if (!sm) return 0;
+  return sm.recipe.reduce((sum,r)=>{
+    const tq=parseFloat(r.totalQty)||0, tp=parseFloat(r.totalPrice)||0, uq=parseFloat(r.useQty)||0;
+    return sum+(tq?tp/tq*uq:0);
+  },0);
+}
+
+function renderSelfmadeHTML() {
+  let html=`<div style="display:flex;justify-content:flex-end;margin-bottom:.75rem">
+    <button class="btn primary" style="background:#9B6B2F;border-color:#9B6B2F" onclick="addSelfmade()">+ 자체 제조품 추가</button>
+  </div>`;
+  if (!selfmade.items.length) {
+    html+=`<div class="empty-cat">자체 제조품을 추가하세요.<br><span style="font-size:12px;color:#bbb">예: 과일청, 초코시럽, 르방 등</span></div>`;
+    return html;
+  }
+  html+=selfmade.items.map(sm=>renderSmItemHTML(sm)).join('');
+  return html;
+}
+
+function renderSmItemHTML(sm) {
+  const cost=selfmadeCost(sm.id);
+  const yq=parseFloat(sm.yieldQty)||0;
+  const perUnit=yq?(cost/yq).toFixed(3):'0.000';
+
+  const rows=sm.recipe.map(r=>{
+    const tq=parseFloat(r.totalQty)||0, tp=parseFloat(r.totalPrice)||0, uq=parseFloat(r.useQty)||0;
+    const unitCost=tq?tp/tq:0, sub=unitCost*uq;
+    return `<tr id="smr-${sm.id}-${r.id}">
+      <td><select class="ci" onchange="selectSmIngr(${sm.id},${r.id},this.value)">${buildRawIngrOpts(r.ingrId)}</select></td>
+      <td><input class="ci r" type="number" min="0" value="${r.totalQty}" placeholder="0"
+        oninput="updSmR(${sm.id},${r.id},'totalQty',this.value)"
+        onblur="saveSmRow(${sm.id},${r.id})"></td>
+      <td><input class="ci" value="${esc(r.unit||'g')}" placeholder="g"
+        oninput="updSmR(${sm.id},${r.id},'unit',this.value)"
+        onblur="saveSmRow(${sm.id},${r.id})"></td>
+      <td><input class="ci r" type="number" min="0" value="${r.totalPrice}" placeholder="0"
+        oninput="updSmR(${sm.id},${r.id},'totalPrice',this.value)"
+        onblur="saveSmRow(${sm.id},${r.id})"></td>
+      <td><input class="ci r" type="number" min="0" value="${r.useQty}" placeholder="0"
+        oninput="updSmR(${sm.id},${r.id},'useQty',this.value)"
+        onblur="saveSmRow(${sm.id},${r.id})"></td>
+      <td class="calc-cell" id="smrunit-${sm.id}-${r.id}">${unitCost.toFixed(3)}</td>
+      <td class="calc-cell" id="smrsub-${sm.id}-${r.id}" style="color:#1a1a1a;font-weight:500">${fmt(Math.round(sub))}</td>
+      <td style="text-align:center">
+        <button class="btn sm danger" onclick="removeSmRow(${sm.id},${r.id})" style="padding:0 6px">✕</button>
+      </td>
+    </tr>`;
+  }).join('') || `<tr><td colspan="8" style="text-align:center;padding:1rem;color:#aaa;font-size:12px">재료를 추가하세요.</td></tr>`;
+
+  const body = sm.open ? `<div class="recipe-body">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:.85rem">
+      <span style="font-size:12px;color:#888;white-space:nowrap">총 제조량</span>
+      <input type="number" min="0" value="${sm.yieldQty}" placeholder="0"
+        style="width:90px;height:30px;padding:0 8px;border:1px solid #d0cfc8;border-radius:7px;font-size:13px;text-align:right;font-family:inherit"
+        oninput="updSelfmade(${sm.id},'yieldQty',this.value)"
+        onblur="saveSelfmade(${sm.id})">
+      <input value="${esc(sm.unit||'g')}" placeholder="g"
+        style="width:55px;height:30px;padding:0 8px;border:1px solid #d0cfc8;border-radius:7px;font-size:13px;font-family:inherit"
+        oninput="updSelfmade(${sm.id},'unit',this.value)"
+        onblur="saveSelfmade(${sm.id})">
+    </div>
+    <div class="tbl-wrap"><table>
+      <colgroup>
+        <col style="width:160px"><col style="width:85px"><col style="width:55px">
+        <col style="width:100px"><col style="width:75px"><col style="width:80px"><col style="width:80px"><col style="width:40px">
+      </colgroup>
+      <thead><tr>
+        <th>재료 선택</th><th class="r">재료총량</th><th>단위</th>
+        <th class="r">재료가격(원)</th><th class="r">사용량</th>
+        <th class="r">단위당(원)</th><th class="r">소계(원)</th><th></th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+      <tfoot><tr>
+        <td colspan="6" style="text-align:right;font-size:12px;color:#888">총 제조 원가</td>
+        <td style="text-align:right;color:#9B6B2F" id="smtotal-${sm.id}">${fmt(Math.round(cost))}</td>
+        <td></td>
+      </tr></tfoot>
+    </table></div>
+    <button class="btn sm" onclick="addSmRow(${sm.id})" style="margin-top:.5rem">+ 재료 추가</button>
+    <div class="sm-cost-box">
+      단위당 원가: <strong id="smperunit-${sm.id}">${perUnit}</strong>원 / ${esc(sm.unit||'g')}
+      &nbsp;&nbsp;|&nbsp;&nbsp; 총 제조 원가: <strong>${fmt(Math.round(cost))}</strong>원
+    </div>
+  </div>` : '';
+
+  return `<div class="menu-item" id="sm-${sm.id}">
+    <div class="menu-header" onclick="handleSmClick(event,${sm.id})">
+      <input class="menu-name-input" value="${esc(sm.name)}" placeholder="제조품명 입력"
+        onclick="event.stopPropagation()"
+        oninput="updSelfmade(${sm.id},'name',this.value)"
+        onblur="saveSelfmade(${sm.id})">
+      <div class="header-info">
+        <span class="hi-label">제조량</span>
+        <span class="hi-val amber">${fmt(yq)}${esc(sm.unit||'g')}</span>
+        <span class="hi-label" style="margin-left:4px">단위원가</span>
+        <span class="hi-val amber" id="smhi-${sm.id}">${perUnit}원/${esc(sm.unit||'g')}</span>
+      </div>
+      <button class="toggle-btn" onclick="event.stopPropagation();toggleSelfmade(${sm.id})">${sm.open?'▲':'▼'}</button>
+      <button class="btn sm danger" onclick="event.stopPropagation();removeSelfmade(${sm.id})">삭제</button>
+    </div>
+    ${body}
+  </div>`;
+}
+
+/* ── 자체 제조품 CRUD ── */
+async function addSelfmade() {
+  const { data, error } = await sb.from('cost_selfmade')
+    .insert({ name:'', yield_qty:1000, unit:'g', sort_order:selfmade.items.length }).select().single();
+  if (error) { toast('저장 실패: '+error.message, true); return; }
+  selfmade.items.push({ id:data.id, name:'', yieldQty:1000, unit:'g', open:true, recipe:[] });
+  renderContent();
+  const el=document.querySelector('#sm-'+data.id+' .menu-name-input'); if(el) el.focus();
+}
+
+async function removeSelfmade(id) {
+  if (!confirm('이 자체 제조품을 삭제할까요?')) return;
+  loading(true);
+  await sb.from('cost_selfmade').delete().eq('id',id);
+  selfmade.items=selfmade.items.filter(s=>s.id!==id);
+  loading(false); renderContent();
+}
+
+function toggleSelfmade(id) {
+  const sm=selfmade.items.find(s=>s.id===id); if(!sm) return;
+  sm.open=!sm.open; renderContent();
+}
+function handleSmClick(e,id) {
+  if (['INPUT','BUTTON','SELECT'].includes(e.target.tagName)) return;
+  toggleSelfmade(id);
+}
+
+function updSelfmade(id, field, val) {
+  const sm=selfmade.items.find(s=>s.id===id); if(!sm) return;
+  sm[field]=val;
+  if (field==='yieldQty'||field==='unit') {
+    const cost=selfmadeCost(id), yq=parseFloat(sm.yieldQty)||0;
+    const pu=yq?(cost/yq).toFixed(3):'0.000';
+    setTxt(`smhi-${id}`, `${pu}원/${sm.unit||'g'}`);
+    setTxt(`smperunit-${id}`, pu);
+  }
+}
+async function saveSelfmade(id) {
+  const sm=selfmade.items.find(s=>s.id===id); if(!sm) return;
+  await dbRun('saveSelfmade', ()=>sb.from('cost_selfmade').update({
+    name:sm.name, yield_qty:parseFloat(sm.yieldQty)||0, unit:sm.unit
+  }).eq('id',id));
+}
+
+/* ── 자체 제조품 레시피 CRUD ── */
+async function addSmRow(smId) {
+  const sm=selfmade.items.find(s=>s.id===smId);
+  const { data, error } = await sb.from('cost_selfmade_rows')
+    .insert({ selfmade_id:smId, ingr_id:null, unit:'g', total_qty:0, total_price:0, use_qty:0, sort_order:sm.recipe.length })
+    .select().single();
+  if (error) { toast('저장 실패: '+error.message, true); return; }
+  sm.recipe.push({ id:data.id, ingrId:null, unit:'g', totalQty:'', totalPrice:'', useQty:'' });
+  renderContent();
+}
+
+async function removeSmRow(smId, rowId) {
+  await sb.from('cost_selfmade_rows').delete().eq('id',rowId);
+  const sm=selfmade.items.find(s=>s.id===smId);
+  sm.recipe=sm.recipe.filter(r=>r.id!==rowId);
+  renderContent();
+}
+
+async function selectSmIngr(smId, rowId, ingrIdStr) {
+  const sm=selfmade.items.find(s=>s.id===smId);
+  const row=sm?.recipe.find(r=>r.id===rowId); if(!row) return;
+  const ingrId=ingrIdStr?parseInt(ingrIdStr):null;
+  row.ingrId=ingrId;
+  if (ingrId) {
+    const ing=ingr.list.find(i=>i.id===ingrId);
+    if (ing) { row.unit=ing.unit||'g'; row.totalQty=ing.totalQty; row.totalPrice=ing.totalPrice; }
+  }
+  renderContent();
+  await dbRun('selectSmIngr', ()=>sb.from('cost_selfmade_rows').update({
+    ingr_id:ingrId, unit:row.unit,
+    total_qty:parseFloat(row.totalQty)||0, total_price:parseFloat(row.totalPrice)||0
+  }).eq('id',rowId));
+}
+
+function updSmR(smId, rowId, field, val) {
+  const sm=selfmade.items.find(s=>s.id===smId);
+  const row=sm?.recipe.find(r=>r.id===rowId); if(!row) return;
+  row[field]=val;
+  const tq=parseFloat(row.totalQty)||0, tp=parseFloat(row.totalPrice)||0, uq=parseFloat(row.useQty)||0;
+  const unitCost=tq?tp/tq:0;
+  setTxt(`smrunit-${smId}-${rowId}`, unitCost.toFixed(3));
+  setTxt(`smrsub-${smId}-${rowId}`, fmt(Math.round(unitCost*uq)));
+  const cost=selfmadeCost(smId), yq=parseFloat(sm.yieldQty)||0;
+  const pu=yq?(cost/yq).toFixed(3):'0.000';
+  setTxt(`smtotal-${smId}`, fmt(Math.round(cost)));
+  setTxt(`smperunit-${smId}`, pu);
+  setTxt(`smhi-${smId}`, `${pu}원/${sm.unit||'g'}`);
+}
+async function saveSmRow(smId, rowId) {
+  const sm=selfmade.items.find(s=>s.id===smId);
+  const row=sm?.recipe.find(r=>r.id===rowId); if(!row) return;
+  await dbRun('saveSmRow', ()=>sb.from('cost_selfmade_rows').update({
+    unit:row.unit, total_qty:parseFloat(row.totalQty)||0,
+    total_price:parseFloat(row.totalPrice)||0, use_qty:parseFloat(row.useQty)||0
+  }).eq('id',rowId));
 }
 
 /* ══════════════ 메뉴 탭 ══════════════ */
@@ -306,7 +547,8 @@ function renderItemHTML(item) {
     <div class="menu-header" onclick="handleHeaderClick(event,${item.id})">
       <input class="menu-name-input" id="iname-${item.id}" value="${esc(item.name)}"
         placeholder="메뉴명 입력" onclick="event.stopPropagation()"
-        oninput="updItemName(${item.id},this.value)">
+        oninput="getItem(${item.id}).name=this.value"
+        onblur="saveMenuField(${item.id})">
       <div class="header-info">
         <span class="hi-label">총원가</span>
         <span class="hi-val gray" id="ihcost-${item.id}">${fmt(Math.round(total))}원</span>
@@ -320,16 +562,43 @@ function renderItemHTML(item) {
   </div>`;
 }
 
-function buildIngrOpts(selectedId) {
-  if (!ingr.cats.length) return `<option value="">재료 관리에서 먼저 추가하세요</option>`;
+/* ── 드롭다운 옵션 빌더 ── */
+function buildRawIngrOpts(selectedIngrId) {
   let o=`<option value="">— 선택 —</option>`;
   ingr.cats.forEach(cat => {
     const items=ingr.list.filter(i=>i.catId===cat.id&&i.name);
     if (!items.length) return;
     o+=`<optgroup label="${esc(cat.name||'(미분류)')}">`;
-    items.forEach(i=>{ o+=`<option value="${i.id}"${i.id===selectedId?' selected':''}>${esc(i.name)}</option>`; });
+    items.forEach(i=>{ o+=`<option value="${i.id}"${i.id===selectedIngrId?' selected':''}>${esc(i.name)}</option>`; });
     o+=`</optgroup>`;
   });
+  return o;
+}
+
+function buildIngrOpts(selectedIngrId, selectedSmId) {
+  let o=`<option value="">— 선택 —</option>`;
+  ingr.cats.forEach(cat => {
+    const items=ingr.list.filter(i=>i.catId===cat.id&&i.name);
+    if (!items.length) return;
+    o+=`<optgroup label="${esc(cat.name||'(미분류)')}">`;
+    items.forEach(i=>{
+      const sel=(!selectedSmId&&i.id===selectedIngrId)?' selected':'';
+      o+=`<option value="i_${i.id}"${sel}>${esc(i.name)}</option>`;
+    });
+    o+=`</optgroup>`;
+  });
+  const namedSm=selfmade.items.filter(s=>s.name);
+  if (namedSm.length) {
+    o+=`<optgroup label="── 자체 제조품 ──">`;
+    namedSm.forEach(s=>{
+      const cost=selfmadeCost(s.id), yq=parseFloat(s.yieldQty)||1;
+      const pu=(cost/yq).toFixed(3);
+      const sel=s.id===selectedSmId?' selected':'';
+      o+=`<option value="s_${s.id}"${sel}>${esc(s.name)} (${pu}원/${s.unit||'g'})</option>`;
+    });
+    o+=`</optgroup>`;
+  }
+  if (!ingr.cats.length && !namedSm.length) return `<option value="">재료 관리에서 먼저 추가하세요</option>`;
   return o;
 }
 
@@ -339,18 +608,35 @@ function renderBodyHTML(item, total, sell1) {
   const ma2=sp?sp-total:null, r2=(sp&&total)?(sp-total)/total*100:null;
 
   const rows=item.recipe.map(r=>{
-    const tq=parseFloat(r.totalQty)||0, tp=parseFloat(r.totalPrice)||0, uq=parseFloat(r.useQty)||0;
+    const isSm=!!r.selfmadeId;
+    const sm=isSm?selfmade.items.find(s=>s.id===r.selfmadeId):null;
+    const tq=isSm?(parseFloat(sm?.yieldQty)||0):(parseFloat(r.totalQty)||0);
+    const tp=isSm?selfmadeCost(r.selfmadeId):(parseFloat(r.totalPrice)||0);
+    const uq=parseFloat(r.useQty)||0;
     const unit=tq?tp/tq:0, sub=unit*uq;
+
+    const tqCell=isSm
+      ?`<td class="ro-cell">${fmt(tq)}</td>`
+      :`<td><input class="ci r" type="number" min="0" value="${r.totalQty}" placeholder="0"
+          oninput="updR(${item.id},${r.id},'totalQty',this.value)"
+          onblur="saveRow(${item.id},${r.id})"></td>`;
+    const unitCell=isSm
+      ?`<td class="ro-cell">${esc(sm?.unit||'g')}</td>`
+      :`<td><input class="ci" value="${esc(r.unit||'g')}" placeholder="g"
+          oninput="updR(${item.id},${r.id},'unit',this.value)"
+          onblur="saveRow(${item.id},${r.id})"></td>`;
+    const tpCell=isSm
+      ?`<td class="ro-cell">${fmt(Math.round(tp))}</td>`
+      :`<td><input class="ci r" type="number" min="0" value="${r.totalPrice}" placeholder="0"
+          oninput="updR(${item.id},${r.id},'totalPrice',this.value)"
+          onblur="saveRow(${item.id},${r.id})"></td>`;
+
     return `<tr id="rr-${item.id}-${r.id}">
-      <td><select class="ci" onchange="selectIngr(${item.id},${r.id},this.value)">${buildIngrOpts(r.ingrId)}</select></td>
-      <td><input class="ci r" type="number" min="0" value="${r.totalQty}" placeholder="0"
-        oninput="updR(${item.id},${r.id},'totalQty',this.value)"></td>
-      <td><input class="ci" value="${esc(r.unit||'g')}" placeholder="g"
-        oninput="updR(${item.id},${r.id},'unit',this.value)"></td>
-      <td><input class="ci r" type="number" min="0" value="${r.totalPrice}" placeholder="0"
-        oninput="updR(${item.id},${r.id},'totalPrice',this.value)"></td>
+      <td><select class="ci" onchange="selectIngr(${item.id},${r.id},this.value)">${buildIngrOpts(r.ingrId,r.selfmadeId)}</select></td>
+      ${tqCell}${unitCell}${tpCell}
       <td><input class="ci r" type="number" min="0" value="${r.useQty}" placeholder="0"
-        oninput="updR(${item.id},${r.id},'useQty',this.value)"></td>
+        oninput="updR(${item.id},${r.id},'useQty',this.value)"
+        onblur="saveRow(${item.id},${r.id})"></td>
       <td class="calc-cell" id="unit-${item.id}-${r.id}">${unit.toFixed(3)}</td>
       <td class="calc-cell" id="sub-${item.id}-${r.id}" style="color:#1a1a1a;font-weight:500">${fmt(Math.round(sub))}</td>
       <td style="text-align:center;white-space:nowrap">
@@ -386,7 +672,9 @@ function renderBodyHTML(item, total, sell1) {
         <div class="mb-title">원가 → 판매가</div>
         <div class="mb-input-row">
           <label>마진율</label>
-          <input type="number" min="0" max="100" step="0.1" value="${rate}" oninput="updMargin(${item.id},this.value)">
+          <input type="number" min="0" max="100" step="0.1" value="${rate}"
+            oninput="updMargin(${item.id},this.value)"
+            onblur="saveMenuField(${item.id})">
           <span>%</span>
         </div>
         <div class="divider"></div>
@@ -398,7 +686,9 @@ function renderBodyHTML(item, total, sell1) {
         <div class="mb-title">판매가 → 마진율 역산</div>
         <div class="mb-input-row">
           <label>판매가</label>
-          <input type="number" min="0" step="100" value="${item.sellPrice||''}" placeholder="입력" oninput="updSell(${item.id},this.value)">
+          <input type="number" min="0" step="100" value="${item.sellPrice||''}" placeholder="입력"
+            oninput="updSell(${item.id},this.value)"
+            onblur="saveMenuField(${item.id})">
           <span>원</span>
         </div>
         <div class="divider"></div>
@@ -415,7 +705,7 @@ async function addItem() {
   const s=mstate[curTab];
   const { data, error } = await sb.from('cost_menus')
     .insert({ category:curTab, name:'', margin_rate:40, sort_order:s.items.length }).select().single();
-  if (error) { toast('저장 실패: '+error.message, true); console.error(error); return; }
+  if (error) { toast('저장 실패: '+error.message, true); return; }
   s.items.push({ id:data.id, name:'', open:true, marginRate:40, sellPrice:'', recipe:[] });
   renderContent();
   const el=document.getElementById(`iname-${data.id}`); if(el) el.focus();
@@ -426,45 +716,43 @@ async function removeItem(id) {
   loading(true);
   await sb.from('cost_menus').delete().eq('id',id);
   mstate[curTab].items=mstate[curTab].items.filter(i=>i.id!==id);
-  loading(false);
-  renderContent();
+  loading(false); renderContent();
 }
 
 function toggleItem(id) { const i=getItem(id); i.open=!i.open; renderContent(); }
 
-function updItemName(id, val) {
-  const item=getItem(id); if(!item) return;
-  item.name=val;
-  debounce(`menu-${id}-name`, ()=>sb.from('cost_menus').update({name:val}).eq('id',id));
+async function saveMenuField(itemId) {
+  const item=getItem(itemId); if(!item) return;
+  await dbRun('saveMenuField', ()=>sb.from('cost_menus').update({
+    name:item.name,
+    margin_rate:parseFloat(item.marginRate)||0,
+    sell_price:parseFloat(item.sellPrice)||null
+  }).eq('id',itemId));
 }
 
 function updMargin(itemId, val) {
   const item=getItem(itemId); if(!item) return;
   item.marginRate=val; refreshTotals(itemId);
-  debounce(`menu-${itemId}-margin`, ()=>sb.from('cost_menus').update({margin_rate:parseFloat(val)||0}).eq('id',itemId));
 }
-
 function updSell(itemId, val) {
   const item=getItem(itemId); if(!item) return;
   item.sellPrice=val; refreshTotals(itemId);
-  debounce(`menu-${itemId}-sell`, ()=>sb.from('cost_menus').update({sell_price:parseFloat(val)||null}).eq('id',itemId));
 }
 
 /* ── 레시피 CRUD ── */
 async function addRow(itemId) {
   const item=getItem(itemId);
   const { data, error } = await sb.from('cost_recipe_rows')
-    .insert({ menu_id:itemId, ingr_id:null, unit:'g', total_qty:0, total_price:0, use_qty:0, sort_order:item.recipe.length })
+    .insert({ menu_id:itemId, ingr_id:null, selfmade_id:null, unit:'g', total_qty:0, total_price:0, use_qty:0, sort_order:item.recipe.length })
     .select().single();
-  if (error) { toast('저장 실패: '+error.message, true); console.error(error); return; }
-  item.recipe.push({ id:data.id, ingrId:null, unit:'g', totalQty:'', totalPrice:'', useQty:'' });
+  if (error) { toast('저장 실패: '+error.message, true); return; }
+  item.recipe.push({ id:data.id, ingrId:null, selfmadeId:null, unit:'g', totalQty:'', totalPrice:'', useQty:'' });
   renderContent();
 }
 
 async function removeRow(itemId, rowId) {
   await sb.from('cost_recipe_rows').delete().eq('id',rowId);
-  const item=getItem(itemId);
-  item.recipe=item.recipe.filter(r=>r.id!==rowId);
+  getItem(itemId).recipe=getItem(itemId).recipe.filter(r=>r.id!==rowId);
   renderContent();
 }
 
@@ -479,32 +767,47 @@ async function moveRow(itemId, rowId, dir) {
   ));
 }
 
-async function selectIngr(itemId, rowId, ingrIdStr) {
+async function selectIngr(itemId, rowId, val) {
   const item=getItem(itemId), row=item.recipe.find(r=>r.id===rowId);
   if (!row) return;
-  const ingrId=ingrIdStr?parseInt(ingrIdStr):null;
-  row.ingrId=ingrId;
-  if (ingrId) {
+  if (val.startsWith('i_')) {
+    const ingrId=parseInt(val.slice(2));
+    row.ingrId=ingrId; row.selfmadeId=null;
     const ing=ingr.list.find(i=>i.id===ingrId);
     if (ing) { row.unit=ing.unit||'g'; row.totalQty=ing.totalQty; row.totalPrice=ing.totalPrice; }
+  } else if (val.startsWith('s_')) {
+    const smId=parseInt(val.slice(2));
+    row.selfmadeId=smId; row.ingrId=null;
+    const sm=selfmade.items.find(s=>s.id===smId);
+    if (sm) { row.unit=sm.unit||'g'; row.totalQty=sm.yieldQty; row.totalPrice=selfmadeCost(smId); }
+  } else {
+    row.ingrId=null; row.selfmadeId=null;
   }
   renderContent();
-  await sb.from('cost_recipe_rows').update({
-    ingr_id:ingrId, unit:row.unit,
-    total_qty:parseFloat(row.totalQty)||0, total_price:parseFloat(row.totalPrice)||0
-  }).eq('id',rowId);
+  await dbRun('selectIngr', ()=>sb.from('cost_recipe_rows').update({
+    ingr_id:row.ingrId, selfmade_id:row.selfmadeId,
+    unit:row.unit, total_qty:parseFloat(row.totalQty)||0, total_price:parseFloat(row.totalPrice)||0
+  }).eq('id',rowId));
 }
 
 function updR(itemId, rowId, field, val) {
   const item=getItem(itemId), row=item.recipe.find(r=>r.id===rowId);
   if (!row) return;
   row[field]=val;
-  const tq=parseFloat(row.totalQty)||0, tp=parseFloat(row.totalPrice)||0, uq=parseFloat(row.useQty)||0;
-  const unit=tq?tp/tq:0;
+  const isSm=!!row.selfmadeId;
+  const sm=isSm?selfmade.items.find(s=>s.id===row.selfmadeId):null;
+  const tq=isSm?(parseFloat(sm?.yieldQty)||0):(parseFloat(row.totalQty)||0);
+  const tp=isSm?selfmadeCost(row.selfmadeId):(parseFloat(row.totalPrice)||0);
+  const uq=parseFloat(row.useQty)||0, unit=tq?tp/tq:0;
   setTxt(`unit-${itemId}-${rowId}`, unit.toFixed(3));
-  setTxt(`sub-${itemId}-${rowId}`,  fmt(Math.round(unit*uq)));
+  setTxt(`sub-${itemId}-${rowId}`, fmt(Math.round(unit*uq)));
   refreshTotals(itemId);
-  debounce(`row-${rowId}`, ()=>sb.from('cost_recipe_rows').update({
+}
+
+async function saveRow(itemId, rowId) {
+  const item=getItem(itemId), row=item?.recipe.find(r=>r.id===rowId);
+  if (!row) return;
+  await dbRun('saveRow', ()=>sb.from('cost_recipe_rows').update({
     unit:row.unit, total_qty:parseFloat(row.totalQty)||0,
     total_price:parseFloat(row.totalPrice)||0, use_qty:parseFloat(row.useQty)||0
   }).eq('id',rowId));
@@ -513,6 +816,11 @@ function updR(itemId, rowId, field, val) {
 /* ── 계산 / DOM 패치 ── */
 function itemTotal(item) {
   return item.recipe.reduce((s,r)=>{
+    if (r.selfmadeId) {
+      const sm=selfmade.items.find(x=>x.id===r.selfmadeId);
+      const yq=parseFloat(sm?.yieldQty)||0, cost=selfmadeCost(r.selfmadeId);
+      return s+(yq?cost/yq*(parseFloat(r.useQty)||0):0);
+    }
     const tq=parseFloat(r.totalQty)||0, tp=parseFloat(r.totalPrice)||0, uq=parseFloat(r.useQty)||0;
     return s+(tq?tp/tq*uq:0);
   },0);
