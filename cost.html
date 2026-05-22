@@ -213,8 +213,9 @@ function renderContent() {
 
 /* ══════════════ 재료 관리 ══════════════ */
 function renderIngrHTML() {
-  const cards = ingr.cats.map(cat => {
-    const items = ingr.list.filter(i=>i.catId===cat.id);
+  const ko = (a,b) => a.name.localeCompare(b.name,'ko');
+  const cards = [...ingr.cats].sort(ko).map(cat => {
+    const items = ingr.list.filter(i=>i.catId===cat.id).sort(ko);
     const rows = items.map(ing => {
       const tq=parseFloat(ing.totalQty)||0, tp=parseFloat(ing.totalPrice)||0;
       return `<tr id="ing-${ing.id}">
@@ -501,7 +502,8 @@ function renderSelfmadeHTML() {
     html+=`<div class="empty-cat">자체 제조품을 추가하세요.<br><span style="font-size:12px;color:#bbb">예: 과일청, 초코시럽, 르방 등</span></div>`;
     return html;
   }
-  html+=selfmade.items.map(sm=>renderSmItemHTML(sm)).join('');
+  const ko = (a,b) => a.name.localeCompare(b.name,'ko');
+  html+=[...selfmade.items].sort(ko).map(sm=>renderSmItemHTML(sm)).join('');
   return html;
 }
 
@@ -693,8 +695,9 @@ async function saveSmRow(smId, rowId) {
 
 /* ══════════════ 간접비 관리 ══════════════ */
 function renderOverheadHTML() {
-  const fixed = overhead.items.filter(i=>i.type==='고정비');
-  const variable = overhead.items.filter(i=>i.type==='변동비');
+  const ko = (a,b) => a.name.localeCompare(b.name,'ko');
+  const fixed = overhead.items.filter(i=>i.type==='고정비').sort(ko);
+  const variable = overhead.items.filter(i=>i.type==='변동비').sort(ko);
   const fixedTotal = fixed.reduce((s,i)=>s+(parseFloat(i.amount)||0),0);
   const varTotal = variable.reduce((s,i)=>s+(parseFloat(i.amount)||0),0);
   const total = fixedTotal + varTotal;
