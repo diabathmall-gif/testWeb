@@ -180,7 +180,7 @@ async function init() {
     }));
     mstate[m.category].items.push({
       id:m.id, name:m.name, open:false,
-      marginRate:m.margin_rate??40, sellPrice:m.sell_price??'', recipe:rows
+      marginRate:m.margin_rate??40, sellPrice:m.sell_price??'', batchQty:m.batch_qty??1, recipe:rows
     });
   });
 
@@ -907,6 +907,10 @@ function renderBodyHTML(item, total, sell1) {
   const rate=parseFloat(item.marginRate)||0;
   const sp=parseFloat(item.sellPrice)||0;
   const ma2=sp?sp-total:null, r2=(sp&&total)?(sp-total)/total*100:null;
+  const bq=parseInt(item.batchQty)||1;
+  const perCost=bq>1?Math.round(total/bq):null;
+  const perSell1=bq>1?Math.round(sell1/bq):null;
+  const perSell2=bq>1&&sp?Math.round(sp/bq):null;
 
   const rows=item.recipe.map(r=>{
     const isSm=!!r.selfmadeId;
@@ -969,6 +973,15 @@ function renderBodyHTML(item, total, sell1) {
       </table>
     </div>
     <button class="btn sm" onclick="addRow(${item.id})" style="margin-bottom:.75rem">+ 재료 추가</button>
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:.6rem;flex-wrap:wrap">
+      <span style="font-size:12px;color:#888">배치 수량</span>
+      <input type="number" min="1" step="1" value="${item.batchQty||1}"
+        style="width:70px;height:30px;padding:0 8px;border:1px solid #d0cfc8;border-radius:7px;font-size:13px;text-align:right;font-family:inherit"
+        oninput="updBatch(${item.id},this.value)"
+        onblur="saveMenuField(${item.id})">
+      <span style="font-size:12px;color:#888">개</span>
+      <span id="ibatchinfo-${item.id}" style="font-size:12px;color:#185FA5;margin-left:4px">${(item.batchQty||1)>1?`→ 개당 원가: <strong>${fmt(Math.round(total/(item.batchQty||1)))}</strong>원`:''}</span>
+    </div>
     <div class="margin-wrap">
       <div class="margin-block">
         <div class="mb-title">원가 → 판매가</div>
@@ -982,12 +995,15 @@ function renderBodyHTML(item, total, sell1) {
         <div class="divider"></div>
         <div class="mb-row"><span class="mb-label">총 원가</span><span class="mb-val" id="icost1-${item.id}">${fmt(Math.round(total))} 원</span></div>
         <div class="mb-row"><span class="mb-label">마진 금액</span><span class="mb-val green" id="imargin1-${item.id}">${fmt(Math.round(sell1-total))} 원</span></div>
-        <div class="mb-row"><span class="mb-label">판매가</span><span class="mb-val blue" id="isell1-${item.id}">${fmt(sell1)} 원</span></div>
+        <div class="mb-row"><span class="mb-label">판매가 (전체)</span><span class="mb-val blue" id="isell1-${item.id}">${fmt(sell1)} 원</span></div>
+        <div id="iperunit1-${item.id}">${perCost!=null?`<div class="divider"></div>
+        <div class="mb-row"><span class="mb-label">개당 원가</span><span class="mb-val" style="color:#555">${fmt(perCost)} 원</span></div>
+        <div class="mb-row"><span class="mb-label">개당 판매가</span><span class="mb-val blue">${fmt(perSell1)} 원</span></div>`:''}</div>
       </div>
       <div class="margin-block">
         <div class="mb-title">판매가 → 마진율 역산</div>
         <div class="mb-input-row">
-          <label>판매가</label>
+          <label>판매가 (전체)</label>
           <input type="number" min="0" step="100" value="${item.sellPrice||''}" placeholder="입력"
             oninput="updSell(${item.id},this.value)"
             onblur="saveMenuField(${item.id})">
@@ -997,6 +1013,8 @@ function renderBodyHTML(item, total, sell1) {
         <div class="mb-row"><span class="mb-label">총 원가</span><span class="mb-val" id="icost2-${item.id}">${fmt(Math.round(total))} 원</span></div>
         <div class="mb-row"><span class="mb-label">마진 금액</span><span class="mb-val green" id="imargin2-${item.id}">${ma2!=null?fmt(Math.round(ma2))+' 원':'— 원'}</span></div>
         <div class="mb-row"><span class="mb-label">마진율</span><span class="mb-val blue" id="irate2-${item.id}">${r2!=null?r2.toFixed(1)+' %':'— %'}</span></div>
+        <div id="iperunit2-${item.id}">${perSell2!=null?`<div class="divider"></div>
+        <div class="mb-row"><span class="mb-label">개당 판매가</span><span class="mb-val blue">${fmt(perSell2)} 원</span></div>`:''}</div>
       </div>
     </div>
   </div>`;
@@ -1008,7 +1026,7 @@ async function addItem() {
   const { data, error } = await sb.from('cost_menus')
     .insert({ category:curTab, name:'', margin_rate:40, sort_order:s.items.length }).select().single();
   if (error) { toast('저장 실패: '+error.message, true); return; }
-  s.items.push({ id:data.id, name:'', open:true, marginRate:40, sellPrice:'', recipe:[] });
+  s.items.push({ id:data.id, name:'', open:true, marginRate:40, sellPrice:'', batchQty:1, recipe:[] });
   renderContent();
   const el=document.getElementById(`iname-${data.id}`); if(el) el.focus();
 }
@@ -1028,7 +1046,8 @@ async function saveMenuField(itemId) {
   await dbRun('saveMenuField', ()=>sb.from('cost_menus').update({
     name:item.name,
     margin_rate:parseFloat(item.marginRate)||0,
-    sell_price:parseFloat(item.sellPrice)||null
+    sell_price:parseFloat(item.sellPrice)||null,
+    batch_qty:parseInt(item.batchQty)||1
   }).eq('id',itemId));
 }
 
@@ -1039,6 +1058,10 @@ function updMargin(itemId, val) {
 function updSell(itemId, val) {
   const item=getItem(itemId); if(!item) return;
   item.sellPrice=val; refreshTotals(itemId);
+}
+function updBatch(itemId, val) {
+  const item=getItem(itemId); if(!item) return;
+  item.batchQty=parseInt(val)||1; refreshTotals(itemId);
 }
 
 /* ── 레시피 CRUD ── */
@@ -1132,6 +1155,7 @@ function refreshTotals(itemId) {
   const item=getItem(itemId), total=itemTotal(item);
   const rate=parseFloat(item.marginRate)||0, sell1=Math.round(total*(1+rate/100));
   const sp=parseFloat(item.sellPrice)||0;
+  const bq=parseInt(item.batchQty)||1;
   setTxt(`itotal-${itemId}`,   fmt(Math.round(total)));
   setTxt(`ihcost-${itemId}`,   fmt(Math.round(total))+'원');
   setTxt(`ihsell-${itemId}`,   fmt(sell1)+'원');
@@ -1145,6 +1169,23 @@ function refreshTotals(itemId) {
   } else {
     setTxt(`imargin2-${itemId}`, '— 원');
     setTxt(`irate2-${itemId}`,   '— %');
+  }
+  const el1=document.getElementById(`iperunit1-${itemId}`);
+  const el2=document.getElementById(`iperunit2-${itemId}`);
+  const elbi=document.getElementById(`ibatchinfo-${itemId}`);
+  if (bq>1) {
+    const pc=Math.round(total/bq), ps1=Math.round(sell1/bq);
+    if(el1) el1.innerHTML=`<div class="divider"></div>
+      <div class="mb-row"><span class="mb-label">개당 원가</span><span class="mb-val" style="color:#555">${fmt(pc)} 원</span></div>
+      <div class="mb-row"><span class="mb-label">개당 판매가</span><span class="mb-val blue">${fmt(ps1)} 원</span></div>`;
+    if(el2&&sp) el2.innerHTML=`<div class="divider"></div>
+      <div class="mb-row"><span class="mb-label">개당 판매가</span><span class="mb-val blue">${fmt(Math.round(sp/bq))} 원</span></div>`;
+    else if(el2) el2.innerHTML='';
+    if(elbi) elbi.innerHTML=`→ 개당 원가: <strong>${fmt(pc)}</strong>원`;
+  } else {
+    if(el1) el1.innerHTML='';
+    if(el2) el2.innerHTML='';
+    if(elbi) elbi.innerHTML='';
   }
 }
 
