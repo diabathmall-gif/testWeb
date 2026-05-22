@@ -485,6 +485,12 @@ async function syncIngrFromLatestLog(ingrId) {
 }
 
 /* ══════════════ 자체 제조품 ══════════════ */
+function selfmadeYield(smId) {
+  const sm=selfmade.items.find(s=>s.id===smId);
+  if (!sm) return 0;
+  return sm.recipe.reduce((sum,r)=>sum+(parseFloat(r.useQty)||0),0);
+}
+
 function selfmadeCost(smId) {
   const sm=selfmade.items.find(s=>s.id===smId);
   if (!sm) return 0;
@@ -509,7 +515,7 @@ function renderSelfmadeHTML() {
 
 function renderSmItemHTML(sm) {
   const cost=selfmadeCost(sm.id);
-  const yq=parseFloat(sm.yieldQty)||0;
+  const yq=selfmadeYield(sm.id);
   const perUnit=yq?(cost/yq).toFixed(3):'0.000';
 
   const rows=sm.recipe.map(r=>{
@@ -540,14 +546,12 @@ function renderSmItemHTML(sm) {
   const body = sm.open ? `<div class="recipe-body">
     <div style="display:flex;align-items:center;gap:8px;margin-bottom:.85rem">
       <span style="font-size:12px;color:#888;white-space:nowrap">총 제조량</span>
-      <input type="number" min="0" value="${sm.yieldQty}" placeholder="0"
-        style="width:90px;height:30px;padding:0 8px;border:1px solid #d0cfc8;border-radius:7px;font-size:13px;text-align:right;font-family:inherit"
-        oninput="updSelfmade(${sm.id},'yieldQty',this.value)"
-        onblur="saveSelfmade(${sm.id})">
+      <span id="smyield-${sm.id}" style="font-size:14px;font-weight:600;color:#1a1a1a">${fmt(yq)}</span>
       <input value="${esc(sm.unit||'g')}" placeholder="g"
         style="width:55px;height:30px;padding:0 8px;border:1px solid #d0cfc8;border-radius:7px;font-size:13px;font-family:inherit"
         oninput="updSelfmade(${sm.id},'unit',this.value)"
         onblur="saveSelfmade(${sm.id})">
+      <span style="font-size:11px;color:#aaa">(사용량 합계 자동 계산)</span>
     </div>
     <div class="tbl-wrap"><table>
       <colgroup>
@@ -581,7 +585,7 @@ function renderSmItemHTML(sm) {
         onblur="saveSelfmade(${sm.id})">
       <div class="header-info">
         <span class="hi-label">제조량</span>
-        <span class="hi-val amber">${fmt(yq)}${esc(sm.unit||'g')}</span>
+        <span class="hi-val amber" id="smhiyield-${sm.id}">${fmt(yq)}${esc(sm.unit||'g')}</span>
         <span class="hi-label" style="margin-left:4px">단위원가</span>
         <span class="hi-val amber" id="smhi-${sm.id}">${perUnit}원/${esc(sm.unit||'g')}</span>
       </div>
@@ -622,17 +626,18 @@ function handleSmClick(e,id) {
 function updSelfmade(id, field, val) {
   const sm=selfmade.items.find(s=>s.id===id); if(!sm) return;
   sm[field]=val;
-  if (field==='yieldQty'||field==='unit') {
-    const cost=selfmadeCost(id), yq=parseFloat(sm.yieldQty)||0;
+  if (field==='unit') {
+    const cost=selfmadeCost(id), yq=selfmadeYield(id);
     const pu=yq?(cost/yq).toFixed(3):'0.000';
     setTxt(`smhi-${id}`, `${pu}원/${sm.unit||'g'}`);
     setTxt(`smperunit-${id}`, pu);
+    setTxt(`smhiyield-${id}`, fmt(yq)+(sm.unit||'g'));
   }
 }
 async function saveSelfmade(id) {
   const sm=selfmade.items.find(s=>s.id===id); if(!sm) return;
   await dbRun('saveSelfmade', ()=>sb.from('cost_selfmade').update({
-    name:sm.name, yield_qty:parseFloat(sm.yieldQty)||0, unit:sm.unit
+    name:sm.name, unit:sm.unit
   }).eq('id',id));
 }
 
@@ -678,11 +683,13 @@ function updSmR(smId, rowId, field, val) {
   const unitCost=tq?tp/tq:0;
   setTxt(`smrunit-${smId}-${rowId}`, unitCost.toFixed(3));
   setTxt(`smrsub-${smId}-${rowId}`, fmt(Math.round(unitCost*uq)));
-  const cost=selfmadeCost(smId), yq=parseFloat(sm.yieldQty)||0;
+  const cost=selfmadeCost(smId), yq=selfmadeYield(smId);
   const pu=yq?(cost/yq).toFixed(3):'0.000';
   setTxt(`smtotal-${smId}`, fmt(Math.round(cost)));
   setTxt(`smperunit-${smId}`, pu);
   setTxt(`smhi-${smId}`, `${pu}원/${sm.unit||'g'}`);
+  setTxt(`smyield-${smId}`, fmt(yq));
+  setTxt(`smhiyield-${smId}`, fmt(yq)+(sm.unit||'g'));
 }
 async function saveSmRow(smId, rowId) {
   const sm=selfmade.items.find(s=>s.id===smId);
@@ -885,7 +892,7 @@ function buildIngrOpts(selectedIngrId, selectedSmId) {
   if (namedSm.length) {
     o+=`<optgroup label="── 자체 제조품 ──">`;
     namedSm.forEach(s=>{
-      const cost=selfmadeCost(s.id), yq=parseFloat(s.yieldQty)||1;
+      const cost=selfmadeCost(s.id), yq=selfmadeYield(s.id)||1;
       const pu=(cost/yq).toFixed(3);
       const sel=s.id===selectedSmId?' selected':'';
       o+=`<option value="s_${s.id}"${sel}>${esc(s.name)} (${pu}원/${s.unit||'g'})</option>`;
@@ -904,7 +911,7 @@ function renderBodyHTML(item, total, sell1) {
   const rows=item.recipe.map(r=>{
     const isSm=!!r.selfmadeId;
     const sm=isSm?selfmade.items.find(s=>s.id===r.selfmadeId):null;
-    const tq=isSm?(parseFloat(sm?.yieldQty)||0):(parseFloat(r.totalQty)||0);
+    const tq=isSm?selfmadeYield(r.selfmadeId):(parseFloat(r.totalQty)||0);
     const tp=isSm?selfmadeCost(r.selfmadeId):(parseFloat(r.totalPrice)||0);
     const uq=parseFloat(r.useQty)||0;
     const unit=tq?tp/tq:0, sub=unit*uq;
@@ -1074,7 +1081,7 @@ async function selectIngr(itemId, rowId, val) {
     const smId=parseInt(val.slice(2));
     row.selfmadeId=smId; row.ingrId=null;
     const sm=selfmade.items.find(s=>s.id===smId);
-    if (sm) { row.unit=sm.unit||'g'; row.totalQty=sm.yieldQty; row.totalPrice=selfmadeCost(smId); }
+    if (sm) { row.unit=sm.unit||'g'; row.totalQty=selfmadeYield(smId); row.totalPrice=selfmadeCost(smId); }
   } else {
     row.ingrId=null; row.selfmadeId=null;
   }
@@ -1091,7 +1098,7 @@ function updR(itemId, rowId, field, val) {
   row[field]=val;
   const isSm=!!row.selfmadeId;
   const sm=isSm?selfmade.items.find(s=>s.id===row.selfmadeId):null;
-  const tq=isSm?(parseFloat(sm?.yieldQty)||0):(parseFloat(row.totalQty)||0);
+  const tq=isSm?selfmadeYield(row.selfmadeId):(parseFloat(row.totalQty)||0);
   const tp=isSm?selfmadeCost(row.selfmadeId):(parseFloat(row.totalPrice)||0);
   const uq=parseFloat(row.useQty)||0, unit=tq?tp/tq:0;
   setTxt(`unit-${itemId}-${rowId}`, unit.toFixed(3));
@@ -1113,7 +1120,7 @@ function itemTotal(item) {
   return item.recipe.reduce((s,r)=>{
     if (r.selfmadeId) {
       const sm=selfmade.items.find(x=>x.id===r.selfmadeId);
-      const yq=parseFloat(sm?.yieldQty)||0, cost=selfmadeCost(r.selfmadeId);
+      const yq=selfmadeYield(r.selfmadeId), cost=selfmadeCost(r.selfmadeId);
       return s+(yq?cost/yq*(parseFloat(r.useQty)||0):0);
     }
     const tq=parseFloat(r.totalQty)||0, tp=parseFloat(r.totalPrice)||0, uq=parseFloat(r.useQty)||0;
