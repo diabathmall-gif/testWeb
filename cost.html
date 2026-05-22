@@ -906,18 +906,19 @@ function renderBodyHTML(item, total, sell1) {
     const uq=parseFloat(r.useQty)||0;
     const unit=tq?tp/tq:0, sub=unit*uq;
 
+    const roStyle='background:#fafaf8;color:#555;cursor:default';
     const tqCell=isSm
-      ?`<td class="ro-cell">${fmt(tq)}</td>`
+      ?`<td><input class="ci r" value="${fmt(tq)}" readonly style="${roStyle}"></td>`
       :`<td><input class="ci r" type="number" min="0" value="${r.totalQty}" placeholder="0"
           oninput="updR(${item.id},${r.id},'totalQty',this.value)"
           onblur="saveRow(${item.id},${r.id})"></td>`;
     const unitCell=isSm
-      ?`<td class="ro-cell">${esc(sm?.unit||'g')}</td>`
+      ?`<td><input class="ci" value="${esc(sm?.unit||'g')}" readonly style="${roStyle}"></td>`
       :`<td><input class="ci" value="${esc(r.unit||'g')}" placeholder="g"
           oninput="updR(${item.id},${r.id},'unit',this.value)"
           onblur="saveRow(${item.id},${r.id})"></td>`;
     const tpCell=isSm
-      ?`<td class="ro-cell">${fmt(Math.round(tp))}</td>`
+      ?`<td><input class="ci r" value="${fmt(Math.round(tp))}" readonly style="${roStyle}"></td>`
       :`<td><input class="ci r" type="number" min="0" value="${r.totalPrice}" placeholder="0"
           oninput="updR(${item.id},${r.id},'totalPrice',this.value)"
           onblur="saveRow(${item.id},${r.id})"></td>`;
